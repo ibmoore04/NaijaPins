@@ -21,6 +21,7 @@ import {
   Loader2,
   ExternalLink,
   RefreshCw,
+  ArrowLeft,
 } from 'lucide-react';
 
 export const AdminSupportInboxPage: React.FC = () => {
@@ -270,8 +271,8 @@ export const AdminSupportInboxPage: React.FC = () => {
 
       {/* Main Split Layout: Left List vs Right Detail Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Tickets List */}
-        <div className="lg:col-span-5 space-y-3">
+        {/* Left: Tickets List (Hidden on mobile if a ticket is actively selected) */}
+        <div className={`lg:col-span-5 space-y-3 ${selectedTicket ? 'hidden lg:block' : 'block'}`}>
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
@@ -321,11 +322,21 @@ export const AdminSupportInboxPage: React.FC = () => {
         </div>
 
         {/* Right: Active Ticket Detail & Conversation */}
-        <div className="lg:col-span-7">
+        <div className={`lg:col-span-7 ${!selectedTicket ? 'hidden lg:block' : 'block'}`}>
           {selectedTicket ? (
             <Card className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden flex flex-col">
               {/* Ticket Top Action Bar */}
               <div className="p-5 border-b border-border bg-gray-50/70 space-y-4">
+                {/* Mobile Back Button */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedTicket(null)}
+                  className="lg:hidden flex items-center gap-1.5 text-xs font-bold text-[#0B6B3A] hover:underline"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to Tickets</span>
+                </button>
+
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">

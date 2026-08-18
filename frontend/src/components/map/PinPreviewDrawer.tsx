@@ -104,8 +104,8 @@ export const PinPreviewDrawer: React.FC<PinPreviewDrawerProps> = ({
   };
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 z-40 animate-slide-up">
-      <Card className="shadow-2xl border-2 border-primary/20 bg-white overflow-hidden rounded-2xl">
+    <div className="fixed bottom-18 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 z-40 animate-slide-up">
+      <Card className="shadow-2xl border-2 border-primary/20 bg-white overflow-hidden rounded-3xl">
         {/* Close Button */}
         <button
           onClick={onClose}

@@ -5,6 +5,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { MembershipProvider } from '@/context/MembershipContext';
 import { DashboardNavProvider } from '@/context/DashboardNavContext';
 import { Header } from '@/components/layout/Header';
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { HomePage } from '@/pages/HomePage';
 import { ExplorePage } from '@/pages/ExplorePage';
@@ -88,7 +89,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/"
             element={
-              <div className="flex-1 h-full overflow-y-auto no-scrollbar">
+              <div className="flex-1 h-full overflow-y-auto no-scrollbar pb-28 md:pb-0">
                 <HomePage onOpenAuthModal={handleOpenAuthModal} />
               </div>
             }
@@ -104,7 +105,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/community"
             element={
-              <div className="flex-1 h-full overflow-y-auto no-scrollbar">
+              <div className="flex-1 h-full overflow-y-auto no-scrollbar pb-28 md:pb-0">
                 <CommunityPage />
               </div>
             }
@@ -112,7 +113,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/messages"
             element={
-              <div className="flex-1 h-full overflow-hidden flex flex-col">
+              <div className="flex-1 h-full overflow-hidden flex flex-col pb-20 md:pb-0">
                 <MessagesPage />
               </div>
             }
@@ -120,7 +121,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/messages/:conversationId"
             element={
-              <div className="flex-1 h-full overflow-hidden flex flex-col">
+              <div className="flex-1 h-full overflow-hidden flex flex-col pb-20 md:pb-0">
                 <MessagesPage />
               </div>
             }
@@ -128,7 +129,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/premium"
             element={
-              <div className="flex-1 h-full overflow-y-auto no-scrollbar">
+              <div className="flex-1 h-full overflow-y-auto no-scrollbar pb-28 md:pb-0">
                 <PremiumPage />
               </div>
             }
@@ -136,7 +137,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/add-memory"
             element={
-              <div className="flex-1 h-full overflow-y-auto no-scrollbar">
+              <div className="flex-1 h-full overflow-y-auto no-scrollbar pb-28 md:pb-0">
                 <AddMemoryWizard onOpenAuthModal={() => handleOpenAuthModal('login')} />
               </div>
             }
@@ -144,7 +145,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/memory/:slug"
             element={
-              <div className="flex-1 h-full overflow-y-auto no-scrollbar">
+              <div className="flex-1 h-full overflow-y-auto no-scrollbar pb-28 md:pb-0">
                 <MemoryDetailPage />
               </div>
             }
@@ -152,7 +153,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/profile"
             element={
-              <div className="flex-1 h-full overflow-y-auto no-scrollbar">
+              <div className="flex-1 h-full overflow-y-auto no-scrollbar pb-28 md:pb-0">
                 <ProfilePage />
               </div>
             }
@@ -160,7 +161,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/profile/:id"
             element={
-              <div className="flex-1 h-full overflow-y-auto no-scrollbar">
+              <div className="flex-1 h-full overflow-y-auto no-scrollbar pb-28 md:pb-0">
                 <ProfilePage />
               </div>
             }
@@ -170,7 +171,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/help"
             element={
-              <div className="flex-1 h-full overflow-y-auto no-scrollbar">
+              <div className="flex-1 h-full overflow-y-auto no-scrollbar pb-28 md:pb-0">
                 <HelpCenterPage />
               </div>
             }
@@ -178,7 +179,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/help/requests"
             element={
-              <div className="flex-1 h-full overflow-y-auto no-scrollbar">
+              <div className="flex-1 h-full overflow-y-auto no-scrollbar pb-28 md:pb-0">
                 <MySupportTicketsPage />
               </div>
             }
@@ -186,7 +187,7 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           <Route
             path="/help/requests/:ticketId"
             element={
-              <div className="flex-1 h-full overflow-y-auto no-scrollbar">
+              <div className="flex-1 h-full overflow-y-auto no-scrollbar pb-28 md:pb-0">
                 <SupportConversationPage />
               </div>
             }
@@ -312,6 +313,9 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
         onClose={() => setAuthModalOpen(false)}
         initialTab={authModalTab}
       />
+
+      {/* Global Mobile Bottom Navigation Bar */}
+      <MobileBottomNav onOpenAuthModal={handleOpenAuthModal} />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Message } from '@/types/social';
+import { MessageStatusIndicator } from '@/components/chat/MessageStatusIndicator';
 
 interface MessageBubbleProps {
   message: Message;
@@ -40,11 +41,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       >
         <p className="whitespace-pre-line break-words">{message.content}</p>
         <div
-          className={`text-[10px] text-right font-medium ${
+          className={`text-[10px] flex items-center justify-end gap-1.5 font-medium ${
             isCurrentUser ? 'text-emerald-100' : 'text-charcoal-muted'
           }`}
         >
-          {formattedTime}
+          <span>{formattedTime}</span>
+          {isCurrentUser && (
+            <MessageStatusIndicator
+              status={message.status}
+              isRead={message.is_read}
+              deliveredAt={message.delivered_at}
+              readAt={message.read_at}
+            />
+          )}
         </div>
       </div>
     </div>

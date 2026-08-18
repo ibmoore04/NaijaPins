@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { FollowButton } from '@/components/social/FollowButton';
 import { SocialActions } from '@/components/social/SocialActions';
@@ -9,7 +8,7 @@ import { RepostModal } from '@/components/social/RepostModal';
 import { ShareModal } from '@/components/memory/ShareModal';
 import { SignInPromptModal } from '@/components/social/SignInPromptModal';
 import { HashtagText } from '@/components/common/HashtagText';
-import { MapPin, Repeat, Crown, Volume2 } from 'lucide-react';
+import { Repeat, Crown } from 'lucide-react';
 import { CommunityFeedItem } from '@/types/social';
 
 interface MemoryCardProps {
@@ -29,7 +28,6 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
   const [signInPromptOpen, setSignInPromptOpen] = useState(false);
 
   const primaryImage = memory.media?.find((m) => m.media_type === 'image');
-  const hasAudio = memory.media?.some((m) => m.media_type === 'audio');
 
   const formattedDate = new Date(memory.created_at).toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -38,21 +36,21 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
   });
 
   return (
-    <Card className={`border border-border bg-white rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all ${className}`}>
+    <Card className={`border border-gray-100 bg-white rounded-2xl overflow-hidden shadow-2xs hover:shadow-xs transition-all ${className}`}>
       {/* Repost Header Banner */}
       {memory.reposted_by && (
-        <div className="px-5 py-2.5 bg-amber-50/70 border-b border-amber-100 flex items-center gap-2 text-xs text-amber-900 font-medium">
+        <div className="px-4 py-2 bg-amber-50/60 border-b border-amber-100/60 flex items-center gap-2 text-xs text-amber-900 font-medium">
           <Repeat className="w-3.5 h-3.5 text-amber-600 shrink-0" />
           <span>
-            Reposted by <strong>{memory.reposted_by.full_name}</strong>
+            Reposted by <strong className="font-bold">{memory.reposted_by.full_name}</strong>
           </span>
           {memory.reposted_by.comment && (
-            <span className="italic text-charcoal-dark font-normal">"{memory.reposted_by.comment}"</span>
+            <span className="italic text-gray-700 font-normal">"{memory.reposted_by.comment}"</span>
           )}
         </div>
       )}
 
-      <CardContent className="p-5 sm:p-6 space-y-4">
+      <CardContent className="p-4 sm:p-5 space-y-3.5">
         {/* Author & Header Section */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -64,26 +62,33 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
               <div className="flex items-center gap-1.5 flex-wrap">
                 <Link
                   to={`/profile/${memory.author.user_id}`}
-                  className="text-sm font-semibold text-black hover:text-[#0B6B3A] transition-colors truncate"
+                  className="text-sm font-bold text-gray-950 hover:text-[#0B6B3A] transition-colors truncate leading-tight"
                 >
                   {memory.author.full_name}
                 </Link>
 
                 {memory.author.is_premium && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-semibold border border-amber-200">
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200">
                     <Crown className="w-3 h-3 text-amber-500 fill-amber-300" />
                     <span>Premium</span>
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 text-xs text-charcoal-muted mt-0.5">
+              <div className="flex items-center gap-1.5 text-xs text-gray-400 font-normal mt-0.5">
                 <span>{formattedDate}</span>
                 <span>•</span>
-                <span className="flex items-center gap-1 text-primary font-medium truncate">
-                  <MapPin className="w-3 h-3 shrink-0" />
-                  {memory.location?.city || 'Nigeria'}, {memory.location?.state}
+                <span className="text-emerald-700 font-medium bg-emerald-50 px-2 py-0.2 rounded-full text-[11px]">
+                  {memory.category?.name || 'General'}
                 </span>
+                {memory.location?.city && (
+                  <>
+                    <span>•</span>
+                    <span className="text-gray-500 font-medium truncate">
+                      {memory.location.city}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -97,41 +102,28 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
           />
         </div>
 
-        {/* Categories & Era Badges */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="primary" size="sm">
-            {memory.category?.name || 'Heritage'}
-          </Badge>
-          <Badge variant="default" size="sm" className="bg-black text-white border-0">
-            {memory.year} Era
-          </Badge>
-          {hasAudio && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-xs font-medium border border-amber-200">
-              <Volume2 className="w-3 h-3" /> Voice Story
-            </span>
-          )}
-        </div>
-
-        {/* Story Title & Excerpt */}
+        {/* Story Title & Content */}
         <div className="space-y-1.5">
-          <h3 className="text-base sm:text-lg font-semibold text-black leading-snug hover:text-[#0B6B3A] transition-colors">
-            <Link to={`/memory/${memory.slug}`}>{memory.title}</Link>
-          </h3>
-          <p className="text-sm sm:text-[15px] text-charcoal-dark leading-relaxed line-clamp-3 whitespace-pre-line">
+          {memory.title && (
+            <h3 className="text-base font-bold text-gray-900 leading-snug hover:text-[#0B6B3A] transition-colors">
+              <Link to={`/memory/${memory.slug}`}>{memory.title}</Link>
+            </h3>
+          )}
+          <p className="text-[14px] text-gray-800 leading-relaxed whitespace-pre-line">
             <HashtagText text={memory.story} target="community" />
           </p>
         </div>
 
-        {/* Photograph Thumbnail / Display */}
+        {/* Photograph Display */}
         {primaryImage && (
           <div
             onClick={() => navigate(`/memory/${memory.slug}`)}
-            className="rounded-xl overflow-hidden border border-border bg-gray-100 aspect-video sm:aspect-21/9 cursor-pointer group relative shadow-2xs"
+            className="rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 aspect-video sm:aspect-21/9 cursor-pointer group relative shadow-2xs"
           >
             <img
               src={primaryImage.file_url}
               alt={primaryImage.caption || memory.title}
-              className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
+              className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
               loading="lazy"
             />
           </div>

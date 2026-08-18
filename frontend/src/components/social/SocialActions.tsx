@@ -125,25 +125,25 @@ export const SocialActions: React.FC<SocialActionsProps> = ({
   };
 
   return (
-    <div className={`flex items-center justify-between border-t border-border pt-3 text-xs font-medium text-charcoal-muted ${className}`}>
+    <div className={`flex items-center justify-between border-t border-gray-100 pt-3 text-xs font-semibold text-gray-500 ${className}`}>
       <div className="flex items-center gap-1 sm:gap-4">
         {/* Like Button with isLiking disable guard */}
         <button
           onClick={handleLike}
           disabled={isLiking}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors group ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-colors group ${
             isLiking ? 'opacity-70 cursor-not-allowed' : ''
           } ${
-            hasLiked ? 'text-red-600 bg-red-50/70 font-semibold' : 'hover:text-red-600 hover:bg-red-50/40'
+            hasLiked ? 'text-rose-600 bg-rose-50/80 font-bold' : 'hover:text-rose-600 hover:bg-rose-50/40 text-gray-600'
           }`}
           aria-label={hasLiked ? 'Unlike memory' : 'Like memory'}
         >
           <Heart
             className={`${iconSizes[size]} transition-transform active:scale-125 ${
-              hasLiked ? 'fill-red-600 text-red-600' : 'group-hover:scale-110'
+              hasLiked ? 'fill-rose-600 text-rose-600' : 'group-hover:scale-110'
             }`}
           />
-          <span>{likesCount > 0 ? likesCount : ''}</span>
+          <span>{likesCount > 0 ? likesCount : 'Like'}</span>
         </button>
 
         {/* Comment Button */}
@@ -152,23 +152,23 @@ export const SocialActions: React.FC<SocialActionsProps> = ({
             e.stopPropagation();
             onCommentClick?.();
           }}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors hover:text-[#0B6B3A] hover:bg-emerald-50/40 group"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-colors hover:text-[#0B6B3A] hover:bg-emerald-50/50 text-gray-600 group"
           aria-label="Comment on memory"
         >
           <MessageSquare className={`${iconSizes[size]} group-hover:scale-110 transition-transform`} />
-          <span>{commentsCount > 0 ? commentsCount : ''}</span>
+          <span>{commentsCount > 0 ? commentsCount : 'Comment'}</span>
         </button>
 
         {/* Repost Button */}
         <button
           onClick={handleRepostClick}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors group ${
-            hasReposted ? 'text-amber-700 bg-amber-50/80 font-semibold' : 'hover:text-amber-700 hover:bg-amber-50/40'
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-colors group ${
+            hasReposted ? 'text-amber-700 bg-amber-50/80 font-bold' : 'hover:text-amber-700 hover:bg-amber-50/40 text-gray-600'
           }`}
           aria-label="Repost memory"
         >
           <Repeat className={`${iconSizes[size]} transition-transform ${hasReposted ? 'text-amber-700' : 'group-hover:scale-110'}`} />
-          <span>{repostsCount > 0 ? repostsCount : ''}</span>
+          {repostsCount > 0 && <span>{repostsCount}</span>}
         </button>
       </div>
 
@@ -176,8 +176,8 @@ export const SocialActions: React.FC<SocialActionsProps> = ({
         {/* Bookmark / Save Button */}
         <button
           onClick={handleSave}
-          className={`p-2 rounded-lg transition-colors ${
-            hasSaved ? 'text-[#0B6B3A] bg-emerald-50' : 'hover:text-[#0B6B3A] hover:bg-gray-100'
+          className={`p-2 rounded-xl transition-colors ${
+            hasSaved ? 'text-[#0B6B3A] bg-[#E8F5EE]' : 'hover:text-[#0B6B3A] hover:bg-gray-100 text-gray-500'
           }`}
           aria-label="Save memory"
           title={hasSaved ? 'Saved to bookmarks' : 'Save to bookmarks'}
@@ -185,17 +185,18 @@ export const SocialActions: React.FC<SocialActionsProps> = ({
           <Bookmark className={`${iconSizes[size]} ${hasSaved ? 'fill-[#0B6B3A] text-[#0B6B3A]' : ''}`} />
         </button>
 
-        {/* Share Button */}
+        {/* Share Button with text label */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             onShareClick?.();
           }}
-          className="p-2 rounded-lg transition-colors hover:text-black hover:bg-gray-100"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-colors text-gray-600 hover:text-black hover:bg-gray-100 font-semibold"
           aria-label="Share memory"
           title="Share memory"
         >
           <Share2 className={iconSizes[size]} />
+          <span className="hidden sm:inline text-xs">Share</span>
         </button>
       </div>
     </div>

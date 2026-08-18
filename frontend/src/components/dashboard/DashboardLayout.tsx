@@ -40,8 +40,8 @@ export const DashboardLayout: React.FC = () => {
         unreadNotificationsCount={unreadNotificationsCount}
       />
 
-      {/* Main Dashboard Content - Independently Scrolling with hidden scrollbars */}
-      <main className="flex-1 h-full min-w-0 overflow-y-auto no-scrollbar p-4 sm:p-6 md:p-8 max-w-6xl w-full mx-auto">
+      {/* Main Dashboard Content - Independently Scrolling with hidden scrollbars & mobile nav clearance */}
+      <main className="flex-1 h-full min-w-0 overflow-y-auto no-scrollbar p-4 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-6xl w-full mx-auto">
         <Outlet />
       </main>
     </div>

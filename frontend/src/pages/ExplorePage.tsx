@@ -8,9 +8,18 @@ import { MapView } from '@/components/map/MapView';
 import { TimelineFilterBar } from '@/components/map/TimelineFilterBar';
 import { MapSocialControls } from '@/components/map/MapSocialControls';
 import { PinPreviewDrawer } from '@/components/map/PinPreviewDrawer';
+import { MobileMapFilterSheet } from '@/components/map/MobileMapFilterSheet';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { DEFAULT_CATEGORIES } from '@/pages/AddMemoryWizard';
-import { Loader2, MapPin as MapPinIcon, Compass } from 'lucide-react';
+import {
+  Loader2,
+  MapPin as MapPinIcon,
+  Compass,
+  SlidersHorizontal,
+  Navigation,
+  Search,
+  X,
+} from 'lucide-react';
 
 export const ExplorePage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -30,6 +39,7 @@ export const ExplorePage: React.FC = () => {
 
   // Auth modal trigger for unauthenticated social tab clicks
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [mobileFilterSheetOpen, setMobileFilterSheetOpen] = useState(false);
 
   // Derive active filters from URL query parameters
   const userParam = searchParams.get('user');
@@ -248,21 +258,23 @@ export const ExplorePage: React.FC = () => {
   }, [activeSocialFilter, nearMeCoords]);
 
   return (
-    <div className="relative flex flex-col h-[calc(100vh-4.5rem)] w-full overflow-hidden isolate">
-      {/* 1. Top Era & Category Filter Bar */}
-      <TimelineFilterBar
-        startYear={startYear}
-        endYear={endYear}
-        onYearChange={handleYearChange}
-        selectedCategory={selectedCategory}
-        onCategoryChange={handleCategoryChange}
-        categories={categories}
-      />
+    <div className="relative flex flex-col h-[calc(100vh-4.5rem-3.75rem)] md:h-[calc(100vh-4.5rem)] w-full overflow-hidden isolate">
+      {/* 1. Desktop Era & Category Filter Bar (Hidden on Mobile for uncluttered view) */}
+      <div className="hidden md:block">
+        <TimelineFilterBar
+          startYear={startYear}
+          endYear={endYear}
+          onYearChange={handleYearChange}
+          selectedCategory={selectedCategory}
+          onCategoryChange={handleCategoryChange}
+          categories={categories}
+        />
+      </div>
 
       {/* 2. Main Map Canvas Container */}
       <div className="relative flex-1 w-full h-full">
-        {/* Floating Social Filters & Banner (Top Center) */}
-        <div className="absolute top-3 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto z-30 flex flex-col items-center pointer-events-auto">
+        {/* Desktop Floating Social Filters & Banner (Top Center) */}
+        <div className="hidden md:flex absolute top-3 left-1/2 -translate-x-1/2 z-30 flex-col items-center pointer-events-auto">
           <MapSocialControls
             activeSocialFilter={activeSocialFilter}
             onSocialFilterChange={handleSocialFilterChange}
@@ -277,6 +289,101 @@ export const ExplorePage: React.FC = () => {
           />
         </div>
 
+        {/* Mobile Ultra-Clean Floating Top Bar (Mobile Only) */}
+        <div className="md:hidden absolute top-3 left-3 right-3 z-30 flex flex-col gap-1.5 pointer-events-auto">
+          <div className="flex items-center gap-2 bg-white/95 backdrop-blur-md rounded-2xl border border-border p-1.5 shadow-md">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-charcoal-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search historic places..."
+                value={searchParam || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev);
+                    if (val) next.set('search', val);
+                    else next.delete('search');
+                    return next;
+                  });
+                }}
+                className="w-full h-8 pl-8 pr-2 text-xs bg-transparent focus:outline-none text-black placeholder:text-charcoal-muted font-medium"
+              />
+            </div>
+
+            <button
+              onClick={() => setMobileFilterSheetOpen(true)}
+              className={`flex items-center gap-1.5 px-3 h-8 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                activeSocialFilter !== 'all' || selectedCategory !== null || startYear !== 1960 || endYear !== 2030
+                  ? 'bg-[#0B6B3A] text-white shadow-xs'
+                  : 'bg-gray-100 text-charcoal-dark hover:bg-gray-200'
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Filters</span>
+            </button>
+          </div>
+
+          {/* Active Filter Chips on Mobile */}
+          {(activeSocialFilter !== 'all' || selectedCategory !== null || startYear !== 1960 || endYear !== 2030 || targetUser || tagParam) && (
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+              {activeSocialFilter !== 'all' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/85 text-white text-[11px] font-semibold backdrop-blur-xs shadow-xs">
+                  <span>{activeSocialFilter.replace('_', ' ')}</span>
+                  <button onClick={() => handleSocialFilterChange('all')}>
+                    <X className="w-3 h-3 hover:text-red-300 ml-0.5" />
+                  </button>
+                </span>
+              )}
+              {selectedCategory !== null && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#0B6B3A] text-white text-[11px] font-semibold backdrop-blur-xs shadow-xs">
+                  <span>{categories.find((c) => c.id === selectedCategory)?.name || 'Category'}</span>
+                  <button onClick={() => setSelectedCategory(null)}>
+                    <X className="w-3 h-3 hover:text-red-300 ml-0.5" />
+                  </button>
+                </span>
+              )}
+              {(startYear !== 1960 || endYear !== 2030) && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-900 text-white text-[11px] font-semibold backdrop-blur-xs shadow-xs">
+                  <span>{startYear} - {endYear}</span>
+                  <button onClick={() => { setStartYear(1960); setEndYear(2030); }}>
+                    <X className="w-3 h-3 hover:text-red-300 ml-0.5" />
+                  </button>
+                </span>
+              )}
+              {targetUser && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-300 text-[11px] font-semibold backdrop-blur-xs shadow-xs">
+                  <span>@{targetUser.name || 'User'}</span>
+                  <button onClick={handleClearTargetUser}>
+                    <X className="w-3 h-3 hover:text-red-300 ml-0.5" />
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Floating Near Me Location Button (Mobile Only) */}
+        <div className="md:hidden absolute bottom-24 right-4 z-30 pointer-events-auto">
+          <button
+            onClick={handleTriggerNearMe}
+            disabled={isLocatingNearMe}
+            className={`w-11 h-11 rounded-full flex items-center justify-center shadow-lg border transition-all active:scale-95 ${
+              activeSocialFilter === 'near_me'
+                ? 'bg-blue-600 text-white border-blue-500'
+                : 'bg-white text-blue-600 border-border hover:bg-blue-50'
+            }`}
+            aria-label="Find memories near me"
+            title="Near Me"
+          >
+            {isLocatingNearMe ? (
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            ) : (
+              <Navigation className="w-5 h-5" />
+            )}
+          </button>
+        </div>
+
         {/* Loading Indicator */}
         {isLoading && (
           <div className="absolute top-18 right-4 z-30 bg-white/90 backdrop-blur-md px-3 py-2 rounded-xl shadow-md flex items-center gap-2 text-xs font-semibold text-[#0B6B3A] animate-fade-in">
@@ -285,9 +392,9 @@ export const ExplorePage: React.FC = () => {
           </div>
         )}
 
-        {/* Pin Count Badge */}
+        {/* Pin Count Badge (Desktop only to prevent mobile clutter) */}
         {!isLoading && (
-          <div className="absolute top-18 left-4 z-30 bg-black/80 text-white px-3 py-1.5 rounded-full shadow-lg text-xs font-semibold flex items-center gap-1.5 backdrop-blur-xs">
+          <div className="hidden md:flex absolute top-18 left-4 z-30 bg-black/80 text-white px-3 py-1.5 rounded-full shadow-lg text-xs font-semibold items-center gap-1.5 backdrop-blur-xs">
             <MapPinIcon className="w-3.5 h-3.5 text-emerald-400" />
             <span>{pins.length} {pins.length === 1 ? 'Memory' : 'Memories'} Pinned</span>
           </div>
@@ -302,7 +409,7 @@ export const ExplorePage: React.FC = () => {
 
         {/* Empty State Banner (If 0 pins returned after loading) */}
         {!isLoading && pins.length === 0 && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 bg-white/95 backdrop-blur-md border border-border px-5 py-3 rounded-2xl shadow-xl text-center space-y-1 max-w-md animate-fade-in">
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 bg-white/95 backdrop-blur-md border border-border px-5 py-3 rounded-2xl shadow-xl text-center space-y-1 max-w-md animate-fade-in mx-4">
             <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-black">
               <Compass className="w-4 h-4 text-[#0B6B3A]" />
               <span>
@@ -345,6 +452,21 @@ export const ExplorePage: React.FC = () => {
           onViewAllPins={handleViewAllPins}
         />
       </div>
+
+      {/* Mobile Map Filter Bottom Sheet */}
+      <MobileMapFilterSheet
+        isOpen={mobileFilterSheetOpen}
+        onClose={() => setMobileFilterSheetOpen(false)}
+        activeSocialFilter={activeSocialFilter}
+        onSocialFilterChange={handleSocialFilterChange}
+        startYear={startYear}
+        endYear={endYear}
+        onYearChange={handleYearChange}
+        selectedCategory={selectedCategory}
+        onCategoryChange={handleCategoryChange}
+        categories={categories}
+        onOpenAuthPrompt={() => setAuthModalOpen(true)}
+      />
 
       {/* Auth Modal Prompt for Guest Interaction */}
       <AuthModal

@@ -1,33 +1,69 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { MemoryCard } from '@/components/social/MemoryCard';
+import { QuickMemoryComposer } from '@/components/composer/QuickMemoryComposer';
 import {
-  Sparkles,
-  Clock,
-  Flame,
-  Users,
-  MapPin,
-  PlusCircle,
-  Search,
-  Loader2,
-  TrendingUp,
+  Home,
   Compass,
+  Users,
+  MessageSquare,
+  Bell,
+  Bookmark,
+  Calendar,
+  Wrench,
+  Settings,
+  Plus,
+  Image,
+  Video,
+  Mic,
+  Smile,
+  Loader2,
 } from 'lucide-react';
 import { CommunityFeedItem, FeedTab } from '@/types/social';
 import { socialFeedService } from '@/services/socialFeed.service';
 import { useAuth } from '@/hooks/useAuth';
-import { QuickMemoryComposer } from '@/components/composer/QuickMemoryComposer';
 
-const POPULAR_LOCATIONS = [
-  { city: 'Lagos', state: 'Lagos', count: 128 },
-  { city: 'Ibadan', state: 'Oyo', count: 74 },
-  { city: 'Enugu', state: 'Enugu', count: 52 },
-  { city: 'Benin City', state: 'Edo', count: 48 },
-  { city: 'Calabar', state: 'Cross River', count: 39 },
-  { city: 'Kano', state: 'Kano', count: 36 },
+const CATEGORY_PILLS = [
+  { id: 'for_you', label: 'All' },
+  { id: 'general', label: 'General' },
+  { id: 'recent', label: 'Questions' },
+  { id: 'popular', label: 'Tips' },
+  { id: 'events', label: 'Events' },
+  { id: 'following', label: 'Announcements' },
+];
+
+const TRENDING_TOPICS = [
+  { tag: 'NaijaCreators', count: '2.4K posts' },
+  { tag: 'Entrepreneurship', count: '1.8K posts' },
+  { tag: 'SocialMediaTips', count: '950 posts' },
+  { tag: 'MadeInNigeria', count: '3.1K posts' },
+  { tag: 'LagosHeritage', count: '1.2K posts' },
+];
+
+const UPCOMING_EVENTS = [
+  {
+    id: 'creator-hangout',
+    title: 'Creator Hangout',
+    location: 'Lagos, Nigeria',
+    date: 'Aug 30, 2025 • 4:00 PM',
+    image: 'https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?auto=format&fit=crop&w=200&q=80',
+  },
+  {
+    id: 'content-strategy-101',
+    title: 'Content Strategy 101',
+    location: 'Online Event',
+    date: 'Sep 5, 2025 • 7:00 PM',
+    image: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=200&q=80',
+  },
+  {
+    id: 'naijapins-workshop',
+    title: 'NaijaPins Workshop',
+    location: 'Abuja, Nigeria',
+    date: 'Sep 12, 2025 • 2:00 PM',
+    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=200&q=80',
+  },
 ];
 
 export const CommunityPage: React.FC = () => {
@@ -38,10 +74,11 @@ export const CommunityPage: React.FC = () => {
 
   const [feedItems, setFeedItems] = useState<CommunityFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const searchQuery = searchParams.get('q') || searchParams.get('tag') || '';
   const [pageOffset, setPageOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
 
   const PAGE_SIZE = 12;
 
@@ -90,270 +127,299 @@ export const CommunityPage: React.FC = () => {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 animate-fade-in">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 animate-fade-in font-body">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* Left Sidebar (Desktop Navigation & Contributor Card) */}
-        <aside className="hidden lg:block lg:col-span-3 space-y-6 sticky top-24">
-          {/* User Profile Mini Card */}
-          {user && profile ? (
-            <Card className="border border-border bg-white rounded-2xl p-5 space-y-4 shadow-xs">
-              <div className="flex items-center gap-3">
-                <UserAvatar src={profile.avatar_url} name={profile.full_name} size="lg" />
-                <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-black truncate">
-                    {profile.full_name}
-                  </h3>
-                  <p className="text-xs text-charcoal-muted capitalize">
-                    {profile.role?.replace('_', ' ') || 'Contributor'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-border flex justify-between text-xs text-charcoal-dark font-semibold">
-                <Link to="/dashboard/memories" className="hover:text-[#0B6B3A] transition-colors">
-                  My Pins
-                </Link>
-                <Link to="/dashboard/saved" className="hover:text-[#0B6B3A] transition-colors">
-                  Saved
-                </Link>
-                <Link to="/messages" className="hover:text-[#0B6B3A] transition-colors">
-                  Messages
-                </Link>
-              </div>
-            </Card>
-          ) : (
-            <Card className="border border-border bg-emerald-50/50 rounded-2xl p-5 space-y-3 text-center">
-              <h4 className="text-sm font-bold text-black">
-                Join the Movement
-              </h4>
-              <p className="text-xs text-charcoal-dark leading-relaxed">
-                Log in to like memories, follow contributors, reply to discussions, and preserve Nigeria's history.
-              </p>
-              <Link to="/explore">
-                <Button variant="primary" size="sm" className="w-full bg-[#0B6B3A] font-semibold text-xs">
-                  Explore Interactive Map
-                </Button>
-              </Link>
-            </Card>
-          )}
-
-          {/* Quick Community Navigation */}
-          <Card className="border border-border bg-white rounded-2xl p-4 shadow-xs">
-            <h4 className="text-xs font-semibold text-charcoal-muted px-3 mb-2">
-              Feed Discovery
-            </h4>
-            <nav className="space-y-1 text-xs font-medium">
-              <button
-                onClick={() => handleTabChange('for_you')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-left ${
-                  activeTab === 'for_you'
-                    ? 'bg-[#E8F5EE] text-[#0B6B3A] font-semibold'
-                    : 'text-charcoal-dark hover:bg-gray-50'
-                }`}
-              >
-                <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>For You</span>
-              </button>
-
-              <button
-                onClick={() => handleTabChange('recent')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-left ${
-                  activeTab === 'recent'
-                    ? 'bg-[#E8F5EE] text-[#0B6B3A] font-semibold'
-                    : 'text-charcoal-dark hover:bg-gray-50'
-                }`}
-              >
-                <Clock className="w-4 h-4 text-blue-600" />
-                <span>Recent Stories</span>
-              </button>
-
-              <button
-                onClick={() => handleTabChange('popular')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-left ${
-                  activeTab === 'popular'
-                    ? 'bg-[#E8F5EE] text-[#0B6B3A] font-bold'
-                    : 'text-charcoal-dark hover:bg-gray-50'
-                }`}
-              >
-                <Flame className="w-4 h-4 text-amber-600" />
-                <span>Trending & Popular</span>
-              </button>
-
-              <button
-                onClick={() => handleTabChange('following')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-left ${
-                  activeTab === 'following'
-                    ? 'bg-[#E8F5EE] text-[#0B6B3A] font-bold'
-                    : 'text-charcoal-dark hover:bg-gray-50'
-                }`}
-              >
-                <Users className="w-4 h-4 text-purple-600" />
-                <span>Following</span>
-              </button>
-            </nav>
-          </Card>
-
-          {/* Add Memory CTA */}
-          <Link to="/add-memory" className="block">
-            <Button
-              variant="primary"
-              size="lg"
-              leftIcon={<PlusCircle className="w-5 h-5" />}
-              className="w-full bg-[#0B6B3A] hover:bg-[#064D2A] text-white font-bold rounded-2xl shadow-sm text-sm justify-center"
+        {/* ========================================================================= */}
+        {/* 1. LEFT COLUMN: Main Social Navigation & Trending Topics                  */}
+        {/* ========================================================================= */}
+        <aside className="hidden lg:block lg:col-span-3 space-y-6 sticky top-20">
+          {/* Primary Navigation Menu */}
+          <nav className="bg-white rounded-2xl border border-gray-100 p-2 shadow-2xs space-y-0.5 text-[13px] font-semibold">
+            <Link
+              to="/"
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
             >
-              Pin a New Memory
-            </Button>
-          </Link>
+              <Home className="w-4.5 h-4.5 text-gray-500" />
+              <span>Home</span>
+            </Link>
+
+            <Link
+              to="/explore"
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+            >
+              <Compass className="w-4.5 h-4.5 text-gray-500" />
+              <span>Discover</span>
+            </Link>
+
+            <Link
+              to="/community"
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-[#E8F5EE] text-[#0B6B3A] font-bold transition-colors"
+            >
+              <Users className="w-4.5 h-4.5 text-[#0B6B3A]" />
+              <span>Community</span>
+            </Link>
+
+            <Link
+              to="/messages"
+              className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <MessageSquare className="w-4.5 h-4.5 text-gray-500" />
+                <span>Messages</span>
+              </div>
+            </Link>
+
+            <Link
+              to="/dashboard/notifications"
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+            >
+              <Bell className="w-4.5 h-4.5 text-gray-500" />
+              <span>Notifications</span>
+            </Link>
+
+            <Link
+              to="/dashboard/saved"
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+            >
+              <Bookmark className="w-4.5 h-4.5 text-gray-500" />
+              <span>Bookmarks</span>
+            </Link>
+
+            <Link
+              to="/explore?view=events"
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+            >
+              <Calendar className="w-4.5 h-4.5 text-gray-500" />
+              <span>Events</span>
+            </Link>
+
+            <Link
+              to="/dashboard"
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+            >
+              <Wrench className="w-4.5 h-4.5 text-gray-500" />
+              <span>Creator Tools</span>
+            </Link>
+
+            <Link
+              to="/dashboard/settings"
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-black transition-colors"
+            >
+              <Settings className="w-4.5 h-4.5 text-gray-500" />
+              <span>Settings</span>
+            </Link>
+          </nav>
+
+          {/* Trending Topics Widget */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-2xs space-y-3">
+            <h3 className="text-xs font-bold text-gray-900 tracking-tight">
+              Trending Topics
+            </h3>
+
+            <div className="space-y-2 text-xs">
+              {TRENDING_TOPICS.map((topic) => (
+                <Link
+                  key={topic.tag}
+                  to={`/community?tag=${topic.tag}`}
+                  className="flex items-center justify-between py-1 text-gray-700 hover:text-[#0B6B3A] transition-colors group"
+                >
+                  <span className="font-semibold group-hover:underline">
+                    # {topic.tag}
+                  </span>
+                  <span className="text-[11px] text-gray-400 font-normal">
+                    {topic.count}
+                  </span>
+                </Link>
+              ))}
+            </div>
+
+            <Link
+              to="/explore?filter=popular"
+              className="inline-block text-xs font-bold text-[#0B6B3A] hover:underline pt-1"
+            >
+              See more
+            </Link>
+          </div>
         </aside>
 
-        {/* Center Column (Main Community Feed) */}
-        <main className="lg:col-span-6 space-y-6">
-          {/* Header Banner & Mobile Tabs */}
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-black tracking-tight flex items-center gap-2">
-                  <span>NaijaPins Community</span>
-                </h1>
-                <p className="text-xs sm:text-sm text-charcoal-muted">
-                  Discover, engage, and connect with heritage stories across Nigeria.
-                </p>
-              </div>
-
-              <Link to="/add-memory" className="sm:hidden">
-                <Button variant="primary" size="sm" leftIcon={<PlusCircle className="w-4 h-4" />} className="w-full bg-[#0B6B3A] font-semibold">
-                  Add Memory
-                </Button>
-              </Link>
+        {/* ========================================================================= */}
+        {/* 2. CENTER COLUMN: Community Feed & Quick Post Composer                    */}
+        {/* ========================================================================= */}
+        <main className="lg:col-span-6 space-y-4 sm:space-y-5">
+          
+          {/* Header Title Row */}
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight leading-tight">
+                Community
+              </h1>
+              <p className="text-xs text-gray-500 font-normal">
+                Connect, share and grow together
+              </p>
             </div>
 
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-charcoal-muted" />
-              <input
-                type="text"
-                placeholder="Search stories, historic cities, or contributors..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-border text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0B6B3A]/30 shadow-2xs"
-              />
-            </div>
-
-            {/* Mobile / Horizontal Tab Strip */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border scrollbar-none">
-              <button
-                onClick={() => handleTabChange('for_you')}
-                className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'for_you'
-                    ? 'bg-[#0B6B3A] text-white shadow-xs'
-                    : 'bg-gray-100 text-charcoal-dark hover:bg-gray-200 font-medium'
-                }`}
+            <Link to="/add-memory">
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<Plus className="w-4 h-4" />}
+                className="bg-[#0B6B3A] hover:bg-[#064D2A] text-white font-bold rounded-xl px-4 py-2 text-xs shadow-xs"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>For You</span>
-              </button>
-
-              <button
-                onClick={() => handleTabChange('recent')}
-                className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'recent'
-                    ? 'bg-[#0B6B3A] text-white shadow-xs'
-                    : 'bg-gray-100 text-charcoal-dark hover:bg-gray-200 font-medium'
-                }`}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                <span>Recent</span>
-              </button>
-
-              <button
-                onClick={() => handleTabChange('popular')}
-                className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'popular'
-                    ? 'bg-[#0B6B3A] text-white shadow-xs'
-                    : 'bg-gray-100 text-charcoal-dark hover:bg-gray-200 font-medium'
-                }`}
-              >
-                <Flame className="w-3.5 h-3.5" />
-                <span>Popular</span>
-              </button>
-
-              <button
-                onClick={() => handleTabChange('following')}
-                className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                  activeTab === 'following'
-                    ? 'bg-[#0B6B3A] text-white shadow-xs'
-                    : 'bg-gray-100 text-charcoal-dark hover:bg-gray-200 font-medium'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Following</span>
-              </button>
-            </div>
+                Create Post
+              </Button>
+            </Link>
           </div>
 
-          {/* Quick Memory Composer for logged-in contributors */}
-          {user && (
-            <QuickMemoryComposer
-              placeholder="What Nigerian story or historical memory would you like to pin today?"
-              onPostSuccess={() => {
-                setPageOffset(0);
-                loadFeed(activeTab, 0, false);
-              }}
-            />
-          )}
+          {/* Category Filter Pills Bar */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {CATEGORY_PILLS.map((pill) => {
+              const isSelected = activeTab === pill.id;
+              return (
+                <button
+                  key={pill.id}
+                  onClick={() => handleTabChange(pill.id as FeedTab)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                    isSelected
+                      ? 'bg-[#0B6B3A] text-white shadow-xs'
+                      : 'bg-gray-100/90 text-gray-700 hover:bg-gray-200/90'
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              );
+            })}
+          </div>
 
-          {/* Feed Content List */}
+          {/* Quick Post Composer Box */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-2xs space-y-3">
+            <div className="flex items-center gap-3">
+              <UserAvatar
+                src={profile?.avatar_url}
+                name={profile?.full_name || 'User'}
+                size="md"
+              />
+              <button
+                type="button"
+                onClick={() => setComposerOpen(!composerOpen)}
+                className="flex-1 text-left px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 text-xs text-gray-500 font-normal border border-transparent transition-all"
+              >
+                Share your thoughts with the community...
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+              <div className="flex items-center gap-3 text-gray-400">
+                <button
+                  type="button"
+                  onClick={() => setComposerOpen(true)}
+                  className="p-1.5 rounded-lg hover:text-[#0B6B3A] hover:bg-emerald-50 transition-colors"
+                  title="Add Photo"
+                >
+                  <Image className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setComposerOpen(true)}
+                  className="p-1.5 rounded-lg hover:text-[#0B6B3A] hover:bg-emerald-50 transition-colors"
+                  title="Add Video"
+                >
+                  <Video className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setComposerOpen(true)}
+                  className="p-1.5 rounded-lg hover:text-[#0B6B3A] hover:bg-emerald-50 transition-colors"
+                  title="Voice Note"
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setComposerOpen(true)}
+                  className="p-1.5 rounded-lg hover:text-[#0B6B3A] hover:bg-emerald-50 transition-colors"
+                  title="Emoji"
+                >
+                  <Smile className="w-4 h-4" />
+                </button>
+              </div>
+
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setComposerOpen(true)}
+                className="bg-[#0B6B3A] hover:bg-[#064D2A] text-white font-bold rounded-xl px-5 h-8 text-xs shadow-xs"
+              >
+                Post
+              </Button>
+            </div>
+
+            {/* Expandable Composer */}
+            {composerOpen && (
+              <div className="pt-3 border-t border-gray-100">
+                <QuickMemoryComposer
+                  placeholder="What Nigerian story or historical memory would you like to pin today?"
+                  onPostSuccess={() => {
+                    setComposerOpen(false);
+                    setPageOffset(0);
+                    loadFeed(activeTab, 0, false);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Social Post Feed Stream */}
           {loading ? (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-80 bg-gray-100 rounded-2xl animate-pulse" />
+                <div key={i} className="h-64 bg-white border border-gray-100 rounded-2xl animate-pulse p-4" />
               ))}
             </div>
           ) : filteredItems.length === 0 ? (
-            <Card className="p-10 text-center border border-dashed border-border rounded-2xl space-y-3 bg-white">
-              <Compass className="w-10 h-10 text-[#0B6B3A] mx-auto opacity-80" />
+            <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center space-y-3 shadow-2xs">
+              <Users className="w-10 h-10 text-[#0B6B3A] mx-auto opacity-75" />
               <div className="space-y-1">
-                <h3 className="text-base font-heading font-bold text-black">
+                <h3 className="text-base font-bold text-gray-900">
                   {activeTab === 'following'
-                    ? 'No memories from followed contributors yet'
-                    : 'No heritage stories found'}
+                    ? 'No posts from followed contributors yet'
+                    : 'No community stories found'}
                 </h3>
-                <p className="text-xs text-charcoal-muted max-w-sm mx-auto">
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">
                   {activeTab === 'following'
-                    ? 'Follow contributors to see their pinned heritage stories in this feed.'
-                    : 'Try changing your search terms or pin a new memory to kickstart this category.'}
+                    ? 'Follow contributors to see their stories and discussions here.'
+                    : 'Be the first to share a heritage memory in this discussion category!'}
                 </p>
               </div>
-              <Link to="/explore">
-                <Button variant="outline" size="sm" className="mt-2 text-xs font-semibold">
-                  Browse Interactive Map
+              <Link to="/add-memory">
+                <Button variant="primary" size="sm" className="mt-2 text-xs font-bold rounded-xl bg-[#0B6B3A]">
+                  Create First Post
                 </Button>
               </Link>
-            </Card>
+            </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {filteredItems.map((item) => (
                 <MemoryCard key={`${item.id}-${item.reposted_by?.user_id || 'orig'}`} memory={item} />
               ))}
 
               {/* Load More Button */}
               {hasMore && (
-                <div className="text-center pt-4">
+                <div className="text-center pt-2">
                   <Button
                     variant="outline"
-                    size="md"
+                    size="sm"
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="rounded-full px-6 text-xs font-bold border-border hover:bg-gray-50"
+                    className="rounded-full px-6 text-xs font-bold border-gray-200 bg-white hover:bg-gray-50"
                   >
                     {loadingMore ? (
                       <span className="flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Loading more stories...</span>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Loading more posts...</span>
                       </span>
                     ) : (
-                      'Load More Stories'
+                      'Load More Posts'
                     )}
                   </Button>
                 </div>
@@ -362,52 +428,106 @@ export const CommunityPage: React.FC = () => {
           )}
         </main>
 
-        {/* Right Sidebar (Trending Cities & Suggested Contributors) */}
-        <aside className="hidden lg:block lg:col-span-3 space-y-6 sticky top-24">
-          {/* Trending Locations */}
-          <Card className="border border-border bg-white rounded-2xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-charcoal-muted">
-              <TrendingUp className="w-4 h-4 text-[#0B6B3A]" />
-              <span>Trending Heritage Cities</span>
+        {/* ========================================================================= */}
+        {/* 3. RIGHT COLUMN: About Community, Upcoming Events & Guidelines            */}
+        {/* ========================================================================= */}
+        <aside className="hidden lg:block lg:col-span-3 space-y-4 sticky top-20">
+          
+          {/* About Community Card */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-2xs space-y-3">
+            <h3 className="text-xs font-bold text-gray-900 tracking-tight">
+              About Community
+            </h3>
+            <p className="text-xs text-gray-600 leading-relaxed font-normal">
+              A place for creators, entrepreneurs and heritage storytellers to connect, share ideas and grow together.
+            </p>
+
+            <div className="grid grid-cols-3 gap-2 py-2 border-y border-gray-50 text-center">
+              <div>
+                <div className="text-sm font-bold text-gray-950">12.5K</div>
+                <div className="text-[10px] text-gray-400">Members</div>
+              </div>
+              <div>
+                <div className="text-sm font-bold text-emerald-600">320</div>
+                <div className="text-[10px] text-gray-400">Online</div>
+              </div>
+              <div>
+                <div className="text-sm font-bold text-gray-950">1.2K</div>
+                <div className="text-[10px] text-gray-400">Posts</div>
+              </div>
             </div>
 
-            <div className="space-y-2 text-xs">
-              {POPULAR_LOCATIONS.map((loc) => (
-                <Link
-                  key={loc.city}
-                  to={`/explore?city=${encodeURIComponent(loc.city)}`}
-                  className="flex items-center justify-between p-2 rounded-xl hover:bg-gray-50 transition-colors group"
-                >
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
-                    <span className="font-semibold text-black group-hover:text-[#0B6B3A] transition-colors">
-                      {loc.city}
-                    </span>
-                    <span className="text-charcoal-muted text-[11px]">{loc.state}</span>
+            <Link
+              to="/explore"
+              className="inline-block text-xs font-bold text-[#0B6B3A] hover:underline"
+            >
+              View members
+            </Link>
+          </div>
+
+          {/* Upcoming Events Card */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-gray-900 tracking-tight">
+                Upcoming Events
+              </h3>
+              <Link to="/explore?view=events" className="text-[11px] font-bold text-[#0B6B3A] hover:underline">
+                View all
+              </Link>
+            </div>
+
+            <div className="space-y-2.5">
+              {UPCOMING_EVENTS.map((evt) => (
+                <div key={evt.id} className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-gray-50 transition-colors">
+                  <img
+                    src={evt.image}
+                    alt={evt.title}
+                    className="w-10 h-10 rounded-lg object-cover shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs font-bold text-gray-900 truncate leading-snug">
+                      {evt.title}
+                    </h4>
+                    <p className="text-[11px] text-gray-500 truncate">{evt.location}</p>
+                    <p className="text-[10px] text-gray-400">{evt.date}</p>
                   </div>
-                  <span className="text-[11px] text-charcoal-muted font-normal bg-gray-100 px-2 py-0.5 rounded-full">
-                    {loc.count} pins
-                  </span>
-                </Link>
+                </div>
               ))}
             </div>
-          </Card>
+          </div>
 
-          {/* Interactive Map Teaser Card */}
-          <Card className="border border-border bg-[#E8F5EE]/60 rounded-2xl p-5 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#0B6B3A]">
-              <MapPin className="w-4 h-4" />
-              <span>Interactive Memory Map</span>
-            </div>
-            <p className="text-xs text-charcoal-dark leading-relaxed">
-              Experience Nigerian history pinned geographically across all 36 states and the FCT with timeline filters.
-            </p>
-            <Link to="/explore">
-              <Button variant="primary" size="sm" className="w-full bg-[#0B6B3A] text-xs font-semibold rounded-xl">
-                Open Full Map
-              </Button>
+          {/* Community Guidelines Card */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-2xs space-y-2.5">
+            <h3 className="text-xs font-bold text-gray-900 tracking-tight">
+              Community Guidelines
+            </h3>
+            <ul className="text-xs text-gray-600 space-y-1.5 font-normal">
+              <li className="flex items-start gap-1.5">
+                <span className="text-[#0B6B3A] font-bold">•</span>
+                <span>Be respectful and kind</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="text-[#0B6B3A] font-bold">•</span>
+                <span>No spam or self-promotion</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="text-[#0B6B3A] font-bold">•</span>
+                <span>Share value and uplift others</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="text-[#0B6B3A] font-bold">•</span>
+                <span>Report inappropriate content</span>
+              </li>
+            </ul>
+
+            <Link
+              to="/help"
+              className="inline-block text-xs font-bold text-[#0B6B3A] hover:underline pt-1"
+            >
+              Read full guidelines
             </Link>
-          </Card>
+          </div>
+
         </aside>
 
       </div>

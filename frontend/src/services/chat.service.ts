@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { Conversation, Message } from '@/types/social';
+import { Conversation, Message, MessageDeliveryStatus } from '@/types/social';
 import { notificationsService } from './notifications.service';
 
 export const chatService = {
@@ -115,7 +115,7 @@ export const chatService = {
     }
   },
 
-  // Get Messages for a conversation
+  // Get Messages for a conversation with accurate delivery & read statuses
   async getConversationMessages(conversationId: string): Promise<Message[]> {
     try {
       const { data, error } = await supabase
@@ -125,7 +125,47 @@ export const chatService = {
         .order('created_at', { ascending: true });
 
       if (error || !data) return [];
-      return data as Message[];
+
+      // Fetch members' last_read_at & last_delivered_at to compute real-time statuses
+      const { data: members } = await supabase
+        .from('conversation_members')
+        .select('user_id, last_read_at, last_delivered_at')
+        .eq('conversation_id', conversationId);
+
+      const messagesWithStatus: Message[] = data.map((msg) => {
+        const otherMember = members?.find((m) => m.user_id !== msg.sender_id);
+        const msgTime = new Date(msg.created_at).getTime();
+
+        const isRead =
+          msg.is_read ||
+          Boolean(msg.read_at) ||
+          Boolean(
+            otherMember?.last_read_at &&
+              new Date(otherMember.last_read_at).getTime() >= msgTime
+          );
+
+        const isDelivered =
+          Boolean(msg.delivered_at) ||
+          Boolean(
+            otherMember?.last_delivered_at &&
+              new Date(otherMember.last_delivered_at).getTime() >= msgTime
+          );
+
+        let status: MessageDeliveryStatus = 'sent';
+        if (isRead) {
+          status = 'read';
+        } else if (isDelivered) {
+          status = 'delivered';
+        }
+
+        return {
+          ...msg,
+          is_read: isRead,
+          status,
+        };
+      });
+
+      return messagesWithStatus;
     } catch (err) {
       console.error('Error fetching messages:', err);
       return [];
@@ -153,6 +193,7 @@ export const chatService = {
           conversation_id: conversationId,
           sender_id: senderId,
           content: content.trim(),
+          is_read: false,
         })
         .select('*, sender:profiles(*)')
         .single();
@@ -184,30 +225,64 @@ export const chatService = {
         });
       }
 
-      return { success: true, message: data as Message };
+      const fullMsg: Message = {
+        ...(data as Message),
+        status: 'sent',
+      };
+
+      return { success: true, message: fullMsg };
     } catch (err: any) {
       console.error('Error sending message:', err);
       return { success: false, error: err.message || 'Failed to send message.' };
     }
   },
 
-  // Mark conversation as read
+  // Mark incoming messages as delivered (recipient client received message)
+  async markConversationAsDelivered(conversationId: string, userId: string): Promise<void> {
+    try {
+      const { error: rpcErr } = await supabase.rpc('mark_conversation_as_delivered', {
+        p_conversation_id: conversationId,
+      });
+
+      if (rpcErr) {
+        // Fallback: update member record if RPC not yet deployed
+        await supabase
+          .from('conversation_members')
+          .update({ last_delivered_at: new Date().toISOString() })
+          .eq('conversation_id', conversationId)
+          .eq('user_id', userId);
+      }
+    } catch (err) {
+      console.error('Error marking conversation delivered:', err);
+    }
+  },
+
+  // Mark conversation as read (recipient opened conversation)
   async markConversationAsRead(conversationId: string, userId: string): Promise<void> {
     try {
-      await supabase
-        .from('conversation_members')
-        .update({ last_read_at: new Date().toISOString() })
-        .eq('conversation_id', conversationId)
-        .eq('user_id', userId);
+      const { error: rpcErr } = await supabase.rpc('mark_conversation_as_read', {
+        p_conversation_id: conversationId,
+      });
+
+      if (rpcErr) {
+        // Fallback: direct updates
+        const now = new Date().toISOString();
+        await supabase
+          .from('conversation_members')
+          .update({ last_read_at: now, last_delivered_at: now })
+          .eq('conversation_id', conversationId)
+          .eq('user_id', userId);
+      }
     } catch (err) {
       console.error('Error marking conversation read:', err);
     }
   },
 
-  // Subscribe to Realtime Messages
+  // Subscribe to Realtime Messages (INSERT & UPDATE for delivered/read receipts)
   subscribeToMessages(
     conversationId: string,
-    onMessage: (message: Message) => void
+    onMessage: (message: Message) => void,
+    onMessageUpdate?: (message: Partial<Message> & { id?: string; conversation_id?: string; last_read_at?: string; last_delivered_at?: string }) => void
   ) {
     const channelName = `room:${conversationId}`;
     const subscription = supabase
@@ -231,8 +306,47 @@ export const chatService = {
           const fullMessage: Message = {
             ...(payload.new as Message),
             sender: senderProf || undefined,
+            status: payload.new.is_read ? 'read' : payload.new.delivered_at ? 'delivered' : 'sent',
           };
           onMessage(fullMessage);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          if (onMessageUpdate && payload.new) {
+            const isRead = Boolean(payload.new.is_read || payload.new.read_at);
+            const isDelivered = Boolean(payload.new.delivered_at);
+            onMessageUpdate({
+              ...(payload.new as any),
+              is_read: isRead,
+              status: isRead ? 'read' : isDelivered ? 'delivered' : 'sent',
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'conversation_members',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          if (onMessageUpdate && payload.new) {
+            onMessageUpdate({
+              conversation_id: conversationId,
+              last_read_at: payload.new.last_read_at,
+              last_delivered_at: payload.new.last_delivered_at,
+            });
+          }
         }
       )
       .subscribe();

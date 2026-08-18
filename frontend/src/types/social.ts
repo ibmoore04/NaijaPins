@@ -127,7 +127,10 @@ export interface ConversationMember {
   user_id: string;
   joined_at: string;
   last_read_at: string;
+  last_delivered_at?: string | null;
 }
+
+export type MessageDeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface Message {
   id: string;
@@ -135,9 +138,12 @@ export interface Message {
   sender_id: string;
   content: string;
   is_read: boolean;
+  delivered_at?: string | null;
+  read_at?: string | null;
   created_at: string;
   updated_at: string;
   sender?: Profile;
+  status?: MessageDeliveryStatus;
 }
 
 export interface SocialNotification {

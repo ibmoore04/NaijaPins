@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   MapPin,
-  Search,
-  PlusCircle,
   Menu,
   X,
   ChevronDown,
@@ -11,7 +9,6 @@ import {
   Users,
   Clock,
   Folder,
-  LayoutGrid,
   Bookmark,
   Bell,
   MessageSquare,
@@ -26,6 +23,7 @@ import {
   TrendingUp,
   BookOpen,
   LifeBuoy,
+  PlusCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
@@ -42,7 +40,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [exploreDropdownOpen, setExploreDropdownOpen] = useState(false);
   const [communityDropdownOpen, setCommunityDropdownOpen] = useState(false);
-  const [appsDropdownOpen, setAppsDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
@@ -56,7 +53,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
 
   const exploreRef = useRef<HTMLDivElement>(null);
   const communityRef = useRef<HTMLDivElement>(null);
-  const appsRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
   const isAuthenticated = !!user;
@@ -65,7 +61,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
   useEffect(() => {
     setExploreDropdownOpen(false);
     setCommunityDropdownOpen(false);
-    setAppsDropdownOpen(false);
     setUserDropdownOpen(false);
     setMobileMenuOpen(false);
   }, [location.pathname, location.search]);
@@ -99,9 +94,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
       if (communityRef.current && !communityRef.current.contains(event.target as Node)) {
         setCommunityDropdownOpen(false);
       }
-      if (appsRef.current && !appsRef.current.contains(event.target as Node)) {
-        setAppsDropdownOpen(false);
-      }
       if (userRef.current && !userRef.current.contains(event.target as Node)) {
         setUserDropdownOpen(false);
       }
@@ -132,8 +124,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
   const isCategoriesActive = location.pathname === '/explore' && location.search.includes('view=categories');
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white border-b border-border/80 shadow-2xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-border/80 shadow-2xs">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-18 flex items-center justify-between gap-4">
         
         {/* 1. Brand Logo & Tagline */}
         <Link to="/" className="flex items-center gap-3 shrink-0 group focus:outline-none">
@@ -159,7 +151,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
               onClick={() => {
                 setExploreDropdownOpen(!exploreDropdownOpen);
                 setCommunityDropdownOpen(false);
-                setAppsDropdownOpen(false);
                 setUserDropdownOpen(false);
               }}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all relative ${
@@ -220,7 +211,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
               onClick={() => {
                 setCommunityDropdownOpen(!communityDropdownOpen);
                 setExploreDropdownOpen(false);
-                setAppsDropdownOpen(false);
                 setUserDropdownOpen(false);
               }}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all relative ${
@@ -255,21 +245,21 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-[#E8F5EE] hover:text-[#0B6B3A] transition-colors"
                 >
                   <UserCheck className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Following</span>
+                  <span>Following Feed</span>
                 </Link>
                 <Link
                   to="/community?tab=popular"
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-[#E8F5EE] hover:text-[#0B6B3A] transition-colors"
                 >
                   <Flame className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Popular</span>
+                  <span>Trending Posts</span>
                 </Link>
                 <Link
-                  to="/community?tab=popular"
+                  to="/community?tab=contributors"
                   className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-[#E8F5EE] hover:text-[#0B6B3A] transition-colors"
                 >
                   <Trophy className="w-3.5 h-3.5 text-yellow-600" />
-                  <span>Leaderboard</span>
+                  <span>Top Contributors</span>
                 </Link>
               </div>
             )}
@@ -308,191 +298,101 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
           </Link>
         </nav>
 
-        {/* 3. Header Right Actions (Search, Messages, Apps Grid, Avatar, Add Memory) */}
-        <div className="hidden sm:flex items-center gap-2 lg:gap-2.5">
-          {/* Search Button */}
-          <Link
-            to="/explore?search=true"
-            className="p-2.5 text-charcoal-dark hover:text-[#0B6B3A] hover:bg-gray-50 rounded-xl transition-colors"
-            title="Search"
-            aria-label="Search memories"
-          >
-            <Search className="w-4.5 h-4.5" />
-          </Link>
-
-          {/* Direct Messages Icon Button */}
-          <Link
-            to="/messages"
-            className="relative p-2.5 text-charcoal-dark hover:text-[#0B6B3A] hover:bg-gray-50 rounded-xl transition-colors"
-            title="Direct Messages"
-            aria-label="Direct Messages"
-          >
-            <MessageSquare className="w-4.5 h-4.5" />
-            {unreadMsgCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 rounded-full bg-[#0B6B3A] text-white text-[10px] font-extrabold flex items-center justify-center border-2 border-white shadow-2xs">
-                {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
-              </span>
-            )}
-          </Link>
-
-          {/* Apps Grid Menu Dropdown */}
-          <div className="relative" ref={appsRef}>
-            <button
-              onClick={() => {
-                setAppsDropdownOpen(!appsDropdownOpen);
-                setExploreDropdownOpen(false);
-                setCommunityDropdownOpen(false);
-                setUserDropdownOpen(false);
-              }}
-              className={`p-2.5 text-charcoal-dark hover:text-[#0B6B3A] hover:bg-gray-50 rounded-xl transition-colors relative ${
-                appsDropdownOpen ? 'bg-[#E8F5EE] text-[#0B6B3A]' : ''
-              }`}
-              title="Apps"
-              aria-label="Apps Menu"
-            >
-              <LayoutGrid className="w-4.5 h-4.5" />
-              {unreadNotifCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#0B6B3A]" />
-              )}
-            </button>
-
-            {appsDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-2xl shadow-xl p-2 z-50 animate-scale-up space-y-1">
-                <div className="px-3 py-1.5 text-[11px] font-heading font-extrabold text-charcoal-muted uppercase tracking-wider flex items-center gap-1.5 border-b border-border/50 pb-2 mb-1">
-                  <LayoutGrid className="w-3.5 h-3.5 text-[#0B6B3A]" />
-                  <span>Apps</span>
-                </div>
-
-                <Link
-                  to="/dashboard"
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-[#E8F5EE] hover:text-[#0B6B3A] transition-colors"
-                >
-                  <BookOpen className="w-4 h-4 text-emerald-600" />
-                  <span>Dashboard</span>
-                </Link>
-
-                <Link
-                  to="/dashboard/saved"
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-[#E8F5EE] hover:text-[#0B6B3A] transition-colors"
-                >
-                  <Bookmark className="w-4 h-4 text-blue-600" />
-                  <span>Saved</span>
-                </Link>
-
-                <Link
-                  to="/dashboard/notifications"
-                  className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-[#E8F5EE] hover:text-[#0B6B3A] transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Bell className="w-4 h-4 text-amber-600" />
-                    <span>Notifications</span>
-                  </div>
-                  {unreadNotifCount > 0 && (
-                    <span className="w-4.5 h-4.5 rounded-full bg-[#0B6B3A] text-white text-[10px] font-extrabold flex items-center justify-center">
-                      {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
-                    </span>
-                  )}
-                </Link>
-
-                <Link
-                  to="/messages"
-                  className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-[#E8F5EE] hover:text-[#0B6B3A] transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <MessageSquare className="w-4 h-4 text-purple-600" />
-                    <span>Messages</span>
-                  </div>
-                  {unreadMsgCount > 0 && (
-                    <span className="w-4.5 h-4.5 rounded-full bg-[#0B6B3A] text-white text-[10px] font-extrabold flex items-center justify-center">
-                      {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
-                    </span>
-                  )}
-                </Link>
-
-                <Link
-                  to={user ? `/profile/${user.id}` : '/profile'}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-[#E8F5EE] hover:text-[#0B6B3A] transition-colors"
-                >
-                  <User className="w-4 h-4 text-teal-600" />
-                  <span>Profile</span>
-                </Link>
-
-                <Link
-                  to="/dashboard/settings"
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-[#E8F5EE] hover:text-[#0B6B3A] transition-colors"
-                >
-                  <Settings className="w-4 h-4 text-gray-500" />
-                  <span>Settings</span>
-                </Link>
-
-                <Link
-                  to="/help"
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-[#E8F5EE] hover:text-[#0B6B3A] transition-colors"
-                >
-                  <LifeBuoy className="w-4 h-4 text-[#0B6B3A]" />
-                  <span>Help & Support</span>
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* User Avatar / Profile Menu */}
+        {/* 3. Header Right Actions (Messages, Notifications, User Avatar) */}
+        <div className="hidden sm:flex items-center gap-2 lg:gap-3">
+          {/* Desktop Messages & Notifications Icons */}
           {isAuthenticated ? (
-            <div className="relative" ref={userRef}>
-              <button
-                onClick={() => {
-                  setUserDropdownOpen(!userDropdownOpen);
-                  setExploreDropdownOpen(false);
-                  setCommunityDropdownOpen(false);
-                  setAppsDropdownOpen(false);
-                }}
-                className="flex items-center p-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-[#0B6B3A]/30 transition-transform active:scale-95"
-                aria-label="User profile options"
+            <>
+              <Link
+                to="/messages"
+                className="relative p-2 rounded-xl text-charcoal-dark hover:text-[#0B6B3A] hover:bg-gray-50 transition-colors"
+                title="Direct Messages"
+                aria-label="Direct Messages"
               >
-                <UserAvatar src={profile?.avatar_url} name={profile?.full_name} size="sm" />
-              </button>
+                <MessageSquare className="w-5 h-5" />
+                {unreadMsgCount > 0 && (
+                  <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-[#0B6B3A] text-white text-[10px] font-extrabold flex items-center justify-center border-2 border-white shadow-2xs">
+                    {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
+                  </span>
+                )}
+              </Link>
 
-              {userDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-52 bg-white border border-border rounded-2xl shadow-xl p-2 z-50 animate-scale-up space-y-1">
-                  <div className="px-3 py-2 border-b border-border/50 mb-1">
-                    <p className="text-xs font-bold text-black truncate">{profile?.full_name || 'Contributor'}</p>
-                    <p className="text-[11px] text-charcoal-muted truncate">{user.email}</p>
+              <Link
+                to="/dashboard/notifications"
+                className="relative p-2 rounded-xl text-charcoal-dark hover:text-[#0B6B3A] hover:bg-gray-50 transition-colors"
+                title="Notifications"
+                aria-label="Notifications"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#0B6B3A] ring-2 ring-white" />
+                )}
+              </Link>
+
+              {/* User Avatar / Profile Menu */}
+              <div className="relative ml-1" ref={userRef}>
+                <button
+                  onClick={() => {
+                    setUserDropdownOpen(!userDropdownOpen);
+                    setExploreDropdownOpen(false);
+                    setCommunityDropdownOpen(false);
+                  }}
+                  className="flex items-center p-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-[#0B6B3A]/30 transition-transform active:scale-95"
+                  aria-label="User profile options"
+                >
+                  <UserAvatar src={profile?.avatar_url} name={profile?.full_name} size="sm" />
+                </button>
+
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-52 bg-white border border-border rounded-2xl shadow-xl p-2 z-50 animate-scale-up space-y-1">
+                    <div className="px-3 py-2 border-b border-border/50 mb-1">
+                      <p className="text-xs font-bold text-black truncate">{profile?.full_name || 'Contributor'}</p>
+                      <p className="text-[11px] text-charcoal-muted truncate">{user.email}</p>
+                    </div>
+
+                    <Link
+                      to={`/profile/${user.id}`}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-gray-50"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>My Profile</span>
+                    </Link>
+
+                    <Link
+                      to="/dashboard"
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-gray-50"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      <span>Dashboard</span>
+                    </Link>
+
+                    <Link
+                      to="/dashboard/saved"
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-gray-50"
+                    >
+                      <Bookmark className="w-4 h-4 text-blue-600" />
+                      <span>Saved Pins</span>
+                    </Link>
+
+                    <Link
+                      to="/help"
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-gray-50"
+                    >
+                      <LifeBuoy className="w-4 h-4 text-[#0B6B3A]" />
+                      <span>Help & Support</span>
+                    </Link>
+
+                    <button
+                      onClick={() => signOut()}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 text-left transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Sign Out</span>
+                    </button>
                   </div>
-
-                  <Link
-                    to={`/profile/${user.id}`}
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-gray-50"
-                  >
-                    <User className="w-4 h-4" />
-                    <span>My Profile</span>
-                  </Link>
-
-                  <Link
-                    to="/dashboard"
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-gray-50"
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    <span>Dashboard</span>
-                  </Link>
-
-                  <Link
-                    to="/help"
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-charcoal-dark hover:bg-gray-50"
-                  >
-                    <LifeBuoy className="w-4 h-4 text-[#0B6B3A]" />
-                    <span>Help & Support</span>
-                  </Link>
-
-                  <button
-                    onClick={() => signOut()}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 text-left transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Sign Out</span>
-                  </button>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            </>
           ) : (
             <button
               onClick={() => onOpenAuthModal && onOpenAuthModal('login')}
@@ -501,41 +401,61 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
               Log in
             </button>
           )}
-
-          {/* Add Memory Button */}
-          <Link to="/add-memory">
-            <Button
-              variant="primary"
-              size="sm"
-              leftIcon={<PlusCircle className="w-4 h-4" />}
-              className="bg-[#0B6B3A] hover:bg-[#064D2A] text-white font-bold rounded-full px-4 h-9 shadow-xs text-xs"
-            >
-              Add Memory
-            </Button>
-          </Link>
         </div>
 
-        {/* 4. Mobile Right Triggers */}
-        <div className="flex md:hidden items-center gap-1.5">
-          <Link
-            to="/explore?search=true"
-            className="p-2 text-charcoal-dark"
-            aria-label="Search"
-          >
-            <Search className="w-5 h-5" />
-          </Link>
+        {/* 4. Mobile Right Triggers (Ultra-Clean) */}
+        <div className="flex md:hidden items-center gap-1">
+          {isAuthenticated ? (
+            <>
+              {/* Direct Messages Icon with Unread Badge */}
+              <Link
+                to="/messages"
+                className="relative p-2 text-charcoal-dark hover:text-[#0B6B3A] transition-colors"
+                aria-label="Direct Messages"
+              >
+                <MessageSquare className="w-5 h-5" />
+                {unreadMsgCount > 0 && (
+                  <span className="absolute top-1 right-1 px-1 min-w-[16px] h-4 rounded-full bg-[#0B6B3A] text-white text-[9px] font-bold flex items-center justify-center shadow-2xs">
+                    {unreadMsgCount}
+                  </span>
+                )}
+              </Link>
 
-          {isAuthenticated && (
-            <Link to="/messages" className="relative p-2 text-charcoal-dark" aria-label="Messages">
-              <MessageSquare className="w-5 h-5" />
-              {unreadMsgCount > 0 && (
-                <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#0B6B3A] text-white text-[9px] font-bold flex items-center justify-center">
-                  {unreadMsgCount}
-                </span>
-              )}
-            </Link>
+              {/* Notification Icon */}
+              <Link
+                to="/dashboard/notifications"
+                className="relative p-2 text-charcoal-dark hover:text-[#0B6B3A] transition-colors"
+                aria-label="Notifications"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#0B6B3A] ring-2 ring-white" />
+                )}
+              </Link>
+
+              {/* User Avatar */}
+              <Link
+                to={`/profile/${user.id}`}
+                className="focus:outline-none ml-1 mr-0.5"
+                aria-label="My Profile"
+              >
+                <UserAvatar
+                  src={profile?.avatar_url}
+                  name={profile?.full_name || 'User'}
+                  size="sm"
+                />
+              </Link>
+            </>
+          ) : (
+            <button
+              onClick={() => onOpenAuthModal && onOpenAuthModal('login')}
+              className="text-xs font-bold text-[#0B6B3A] px-3 py-1.5 rounded-full bg-[#E8F5EE] transition-colors active:scale-95 mr-1"
+            >
+              Sign in
+            </button>
           )}
 
+          {/* Clean Menu Toggle Button */}
           <button
             onClick={() => {
               if (isDashboardRoute) {
@@ -544,18 +464,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
                 setMobileMenuOpen(!mobileMenuOpen);
               }
             }}
-            className="p-2 text-charcoal-dark hover:bg-gray-100 rounded-xl focus:outline-none transition-colors"
-            aria-label={
-              (isDashboardRoute ? isDashboardSidebarOpen : mobileMenuOpen)
-                ? 'Close navigation'
-                : 'Open navigation'
-            }
-            aria-expanded={isDashboardRoute ? isDashboardSidebarOpen : mobileMenuOpen}
+            className="p-1.5 text-charcoal-dark hover:bg-gray-100 rounded-xl focus:outline-none transition-colors"
+            aria-label="Menu"
           >
             {(isDashboardRoute ? isDashboardSidebarOpen : mobileMenuOpen) ? (
-              <X className="w-6 h-6" />
+              <X className="w-5.5 h-5.5" />
             ) : (
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5.5 h-5.5" />
             )}
           </button>
         </div>

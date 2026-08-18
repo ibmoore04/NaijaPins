@@ -49,16 +49,60 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       if (!isMounted) return;
 
-      // Subscribe to Realtime messages
-      unsubscribe = chatService.subscribeToMessages(conversation.id, (newMsg) => {
-        if (!isMounted) return;
-        setMessages((prev) => {
-          // Avoid duplicate insertion
-          if (prev.some((m) => m.id === newMsg.id)) return prev;
-          return [...prev, newMsg];
-        });
-        setTimeout(scrollToBottom, 100);
-      });
+      // Subscribe to Realtime messages (inserts and status updates)
+      unsubscribe = chatService.subscribeToMessages(
+        conversation.id,
+        (newMsg) => {
+          if (!isMounted) return;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+          setTimeout(scrollToBottom, 100);
+
+          // If incoming message from other user, automatically mark read since conversation is open
+          if (user && newMsg.sender_id !== user.id) {
+            chatService.markConversationAsRead(conversation.id, user.id);
+          }
+        },
+        (updatedMsg) => {
+          if (!isMounted) return;
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (updatedMsg.id && m.id === updatedMsg.id) {
+                return {
+                  ...m,
+                  ...updatedMsg,
+                  is_read: updatedMsg.is_read ?? m.is_read,
+                  status: updatedMsg.status ?? m.status,
+                };
+              }
+
+              // Other member read our messages
+              if (updatedMsg.last_read_at && m.sender_id === user?.id) {
+                const isNowRead =
+                  new Date(updatedMsg.last_read_at).getTime() >=
+                  new Date(m.created_at).getTime();
+                if (isNowRead) {
+                  return { ...m, is_read: true, status: 'read' };
+                }
+              }
+
+              // Other member received our messages (delivered)
+              if (updatedMsg.last_delivered_at && m.sender_id === user?.id) {
+                const isNowDelivered =
+                  new Date(updatedMsg.last_delivered_at).getTime() >=
+                  new Date(m.created_at).getTime();
+                if (isNowDelivered && m.status !== 'read') {
+                  return { ...m, status: 'delivered' };
+                }
+              }
+
+              return m;
+            })
+          );
+        }
+      );
     };
 
     loadMessages();
@@ -74,8 +118,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     if (!user || !inputContent.trim() || sending) return;
 
     const textToSend = inputContent.trim();
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: tempId,
+      conversation_id: conversation.id,
+      sender_id: user.id,
+      content: textToSend,
+      is_read: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      sender: profile || undefined,
+      status: 'sending',
+    };
+
+    // Optimistically show message with 'sending' indicator
+    setMessages((prev) => [...prev, optimisticMsg]);
     setInputContent('');
     setSending(true);
+    setTimeout(scrollToBottom, 50);
 
     const result = await chatService.sendMessage(
       conversation.id,
@@ -85,13 +145,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     );
 
     if (result.success && result.message) {
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === result.message!.id)) return prev;
-        return [...prev, result.message!];
-      });
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...result.message!, status: 'sent' } : m))
+      );
       setTimeout(scrollToBottom, 50);
     } else {
-      alert(result.error || 'Failed to send message.');
+      // Mark optimistic message as failed
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
+      );
     }
 
     setSending(false);
