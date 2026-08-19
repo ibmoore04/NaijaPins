@@ -70,7 +70,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onOpenAuthModa
           }
         >
           <Compass className={`w-5 h-5 mb-0.5 ${isExplore ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-          <span>Map</span>
+          <span>Discover</span>
           {isExplore && (
             <span className="absolute top-1 w-1 h-1 rounded-full bg-[#0B6B3A]" />
           )}
@@ -105,7 +105,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onOpenAuthModa
           }
         >
           <Users className={`w-5 h-5 mb-0.5 ${isCommunity ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-          <span>Feed</span>
+          <span>Community</span>
           {isCommunity && (
             <span className="absolute top-1 w-1 h-1 rounded-full bg-[#0B6B3A]" />
           )}

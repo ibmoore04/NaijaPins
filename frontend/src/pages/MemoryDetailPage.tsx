@@ -28,6 +28,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { socialInteractionsService } from '@/services/socialInteractions.service';
+import { ImageLightboxModal } from '@/components/chat/ImageLightboxModal';
 
 export const MemoryDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -426,18 +427,12 @@ export const MemoryDetailPage: React.FC = () => {
         />
       )}
 
-      {/* Lightbox Photo Modal */}
+      {/* Lightbox Photo Modal with In-Page Download */}
       {activePhoto && (
-        <div
-          onClick={() => setActivePhoto(null)}
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-pointer animate-fade-in"
-        >
-          <img
-            src={activePhoto}
-            alt="Enlarged memory photo"
-            className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl"
-          />
-        </div>
+        <ImageLightboxModal
+          imageUrl={activePhoto}
+          onClose={() => setActivePhoto(null)}
+        />
       )}
     </div>
   );

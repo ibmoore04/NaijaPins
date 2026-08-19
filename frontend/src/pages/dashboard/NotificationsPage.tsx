@@ -44,15 +44,66 @@ export const NotificationsPage: React.FC = () => {
   }
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const newNotifs = notifications.filter((n) => !n.is_read);
+  const earlierNotifs = notifications.filter((n) => n.is_read);
+
+  const renderNotifItem = (n: NotificationItemData) => (
+    <div
+      key={n.id}
+      className={`p-3.5 sm:p-4 rounded-2xl border transition-colors flex items-center justify-between gap-3 ${
+        n.is_read ? 'bg-white border-gray-100' : 'bg-[#E8F5EE]/40 border-[#A3D9BC]/80 font-medium'
+      }`}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+            n.type === 'approval'
+              ? 'bg-emerald-100 text-emerald-700'
+              : n.type === 'rejection'
+              ? 'bg-red-100 text-red-700'
+              : n.type === 'announcement'
+              ? 'bg-blue-100 text-blue-700'
+              : 'bg-gray-100 text-charcoal-dark'
+          }`}
+        >
+          {n.type === 'announcement' ? (
+            <Megaphone className="w-5 h-5" />
+          ) : n.type === 'rejection' ? (
+            <AlertTriangle className="w-5 h-5" />
+          ) : (
+            <FileText className="w-5 h-5" />
+          )}
+        </div>
+
+        <div className="min-w-0 space-y-0.5">
+          <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate">{n.title}</h4>
+          <p className="text-xs text-gray-600 line-clamp-1">{n.message}</p>
+          <p className="text-[10px] text-gray-400 font-medium">
+            {new Date(n.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })} • {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
+      </div>
+
+      {!n.is_read && (
+        <button
+          onClick={() => handleMarkAsRead(n.id)}
+          className="p-2 rounded-xl text-[#0B6B3A] hover:bg-[#E8F5EE] shrink-0 transition-colors"
+          title="Mark as read"
+        >
+          <Check className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  );
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in font-body">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-black tracking-tight">Notifications</h1>
-          <p className="text-xs sm:text-sm text-charcoal-muted font-normal mt-0.5">
-            Stay updated on your submission approvals, status changes, and community news.
+          <h1 className="text-xl sm:text-2xl font-heading font-extrabold text-black tracking-tight">Notifications</h1>
+          <p className="text-xs text-gray-400 font-normal mt-0.5">
+            Activity, approvals, and updates across your memories.
           </p>
         </div>
 
@@ -62,8 +113,9 @@ export const NotificationsPage: React.FC = () => {
             size="sm"
             onClick={handleMarkAllAsRead}
             leftIcon={<CheckCheck className="w-4 h-4 text-[#0B6B3A]" />}
+            className="text-xs font-semibold rounded-xl"
           >
-            Mark All as Read
+            Mark all read
           </Button>
         )}
       </div>
@@ -75,55 +127,26 @@ export const NotificationsPage: React.FC = () => {
           description="There are no notifications to display right now."
         />
       ) : (
-        <div className="space-y-3">
-          {notifications.map((n) => (
-            <div
-              key={n.id}
-              className={`p-4 rounded-xl border transition-colors flex items-start justify-between gap-4 ${
-                n.is_read ? 'bg-white border-border' : 'bg-[#E8F5EE]/40 border-[#A3D9BC]/80 font-medium'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                    n.type === 'approval'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : n.type === 'rejection'
-                      ? 'bg-red-100 text-red-700'
-                      : n.type === 'announcement'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-charcoal-dark'
-                  }`}
-                >
-                  {n.type === 'announcement' ? (
-                    <Megaphone className="w-4 h-4" />
-                  ) : n.type === 'rejection' ? (
-                    <AlertTriangle className="w-4 h-4" />
-                  ) : (
-                    <FileText className="w-4 h-4" />
-                  )}
-                </div>
-
-                <div className="space-y-0.5">
-                  <h4 className="text-sm font-bold text-black">{n.title}</h4>
-                  <p className="text-xs text-charcoal-dark leading-relaxed">{n.message}</p>
-                  <p className="text-[11px] text-charcoal-muted pt-1">
-                    {new Date(n.created_at).toLocaleString()}
-                  </p>
-                </div>
+        <div className="space-y-6">
+          {/* New / Unread Group */}
+          {newNotifs.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider px-1">New</h3>
+              <div className="space-y-2">
+                {newNotifs.map(renderNotifItem)}
               </div>
-
-              {!n.is_read && (
-                <button
-                  onClick={() => handleMarkAsRead(n.id)}
-                  className="p-1.5 rounded-lg text-[#0B6B3A] hover:bg-[#E8F5EE] shrink-0"
-                  title="Mark as read"
-                >
-                  <Check className="w-4 h-4" />
-                </button>
-              )}
             </div>
-          ))}
+          )}
+
+          {/* Earlier Group */}
+          {earlierNotifs.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-1">Earlier</h3>
+              <div className="space-y-2">
+                {earlierNotifs.map(renderNotifItem)}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

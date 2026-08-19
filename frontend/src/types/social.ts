@@ -112,6 +112,23 @@ export interface FollowStats {
   is_following: boolean;
 }
 
+export interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  reaction: string;
+  created_at: string;
+}
+
+export interface MessageAttachment {
+  id: string;
+  url: string;
+  name: string;
+  type: 'image' | 'audio' | 'video' | 'file';
+  size?: number;
+  duration?: number;
+}
+
 export interface Conversation {
   id: string;
   created_at: string;
@@ -119,6 +136,7 @@ export interface Conversation {
   other_member?: Profile & { is_premium?: boolean };
   last_message?: Message | null;
   unread_count?: number;
+  is_muted?: boolean;
 }
 
 export interface ConversationMember {
@@ -128,6 +146,7 @@ export interface ConversationMember {
   joined_at: string;
   last_read_at: string;
   last_delivered_at?: string | null;
+  is_muted?: boolean;
 }
 
 export type MessageDeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
@@ -140,6 +159,15 @@ export interface Message {
   is_read: boolean;
   delivered_at?: string | null;
   read_at?: string | null;
+  edited_at?: string | null;
+  is_deleted?: boolean;
+  deleted_for_all?: boolean;
+  deleted_by?: string[] | null;
+  reply_to_message_id?: string | null;
+  reply_to?: Message | null;
+  attachments?: MessageAttachment[];
+  message_type?: 'text' | 'image' | 'audio' | 'file' | 'call';
+  reactions?: MessageReaction[];
   created_at: string;
   updated_at: string;
   sender?: Profile;
@@ -167,4 +195,24 @@ export interface SocialNotification {
   is_read: boolean;
   created_at: string;
   actor?: Profile;
+}
+
+export type CallStatus = 'ringing' | 'accepted' | 'rejected' | 'missed' | 'ended' | 'cancelled';
+export type CallType = 'voice' | 'video';
+
+export interface Call {
+  id: string;
+  conversation_id: string;
+  caller_id: string;
+  receiver_id: string;
+  call_type: CallType;
+  status: CallStatus;
+  started_at: string;
+  answered_at?: string | null;
+  ended_at?: string | null;
+  ended_by?: string | null;
+  duration_seconds?: number;
+  created_at: string;
+  caller?: Profile;
+  receiver?: Profile;
 }

@@ -337,10 +337,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
                     setExploreDropdownOpen(false);
                     setCommunityDropdownOpen(false);
                   }}
-                  className="flex items-center p-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-[#0B6B3A]/30 transition-transform active:scale-95"
+                  className="flex items-center gap-2 p-1 pr-2 rounded-full hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0B6B3A]/30 transition-all active:scale-95"
                   aria-label="User profile options"
                 >
                   <UserAvatar src={profile?.avatar_url} name={profile?.full_name} size="sm" />
+                  <span className="hidden lg:inline text-xs font-bold text-gray-800 truncate max-w-[80px]">
+                    {profile?.full_name?.split(' ')[0] || 'Contributor'}
+                  </span>
                 </button>
 
                 {userDropdownOpen && (

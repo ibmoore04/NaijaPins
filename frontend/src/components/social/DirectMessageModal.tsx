@@ -42,7 +42,7 @@ export const DirectMessageModal: React.FC<DirectMessageModalProps> = ({
         convId,
         user.id,
         initialMessage.trim(),
-        profile?.full_name || 'Contributor'
+        { senderName: profile?.full_name || 'Contributor' }
       );
       onClose();
       navigate(`/messages/${convId}`);

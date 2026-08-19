@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
 import { MembershipProvider } from '@/context/MembershipContext';
 import { DashboardNavProvider } from '@/context/DashboardNavContext';
+import { CallProvider } from '@/context/CallContext';
 import { Header } from '@/components/layout/Header';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { AuthModal } from '@/components/auth/AuthModal';
@@ -335,12 +336,14 @@ export const App: React.FC = () => {
         <MembershipProvider>
           <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <DashboardNavProvider>
-              <AppShellContent
-                authModalOpen={authModalOpen}
-                setAuthModalOpen={setAuthModalOpen}
-                authModalTab={authModalTab}
-                handleOpenAuthModal={handleOpenAuthModal}
-              />
+              <CallProvider>
+                <AppShellContent
+                  authModalOpen={authModalOpen}
+                  setAuthModalOpen={setAuthModalOpen}
+                  authModalTab={authModalTab}
+                  handleOpenAuthModal={handleOpenAuthModal}
+                />
+              </CallProvider>
             </DashboardNavProvider>
           </Router>
         </MembershipProvider>

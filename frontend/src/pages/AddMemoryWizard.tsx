@@ -9,9 +9,9 @@ import { Button } from '@/components/ui/Button';
 import {
   MapPin,
   Sparkles,
-  Compass,
   LogIn,
   ShieldCheck,
+  X,
 } from 'lucide-react';
 
 export const DEFAULT_CATEGORIES = [
@@ -95,30 +95,28 @@ export const AddMemoryWizard: React.FC<AddMemoryWizardProps> = ({ onOpenAuthModa
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-6 animate-fade-in">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-heading font-extrabold text-black tracking-tight flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-full bg-[#0B6B3A] text-white flex items-center justify-center text-sm shadow-xs shrink-0">
-              <MapPin className="w-5 h-5 fill-white stroke-[#0B6B3A]" />
-            </span>
-            <span>Pin a Nigerian Memory</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-charcoal-muted mt-1">
-            Write your story, tag where it happened in Nigeria, and preserve history in seconds.
-          </p>
-        </div>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate('/explore')}
-          leftIcon={<Compass className="w-4 h-4 text-[#0B6B3A]" />}
-          className="self-start sm:self-auto text-xs"
+    <div className="max-w-3xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6 animate-fade-in font-body">
+      {/* Mobile-First Screen Top Header */}
+      <div className="flex items-center justify-between pb-2 border-b border-gray-100 sm:border-0">
+        <button
+          onClick={() => navigate(-1)}
+          className="p-1.5 rounded-full text-gray-500 hover:bg-gray-100 transition-colors"
+          title="Close / Go Back"
+          aria-label="Close"
         >
-          Explore Map
-        </Button>
+          <X className="w-5 h-5" />
+        </button>
+
+        <h1 className="text-base sm:text-2xl font-heading font-extrabold text-black tracking-tight text-center">
+          New Memory
+        </h1>
+
+        <button
+          onClick={() => navigate('/dashboard/drafts')}
+          className="text-xs sm:text-sm font-bold text-[#0B6B3A] hover:underline"
+        >
+          Drafts
+        </button>
       </div>
 
       {/* Modern Quick Memory Composer */}

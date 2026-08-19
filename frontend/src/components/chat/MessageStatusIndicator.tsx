@@ -56,11 +56,11 @@ export const MessageStatusIndicator: React.FC<MessageStatusIndicatorProps> = ({
     );
   }
 
-  // 3. Read (Double active checkmarks in bright emerald)
+  // 3. Read (Double active checkmarks in benchmark brand emerald)
   if (effectiveStatus === 'read') {
     return (
       <span
-        className={`inline-flex items-center text-emerald-300 drop-shadow-xs ${className}`}
+        className={`inline-flex items-center text-[#0B6B3A] ${className}`}
         title="Read"
         aria-label="Message Read"
       >
@@ -69,11 +69,11 @@ export const MessageStatusIndicator: React.FC<MessageStatusIndicatorProps> = ({
     );
   }
 
-  // 4. Delivered (Double checkmarks in subtle neutral white/grey)
+  // 4. Delivered (Double checkmarks in neutral grey)
   if (effectiveStatus === 'delivered') {
     return (
       <span
-        className={`inline-flex items-center text-white/80 ${className}`}
+        className={`inline-flex items-center text-gray-400 ${className}`}
         title="Delivered"
         aria-label="Message Delivered"
       >
@@ -82,10 +82,10 @@ export const MessageStatusIndicator: React.FC<MessageStatusIndicatorProps> = ({
     );
   }
 
-  // 5. Sent (Single checkmark in subtle neutral)
+  // 5. Sent (Single checkmark in neutral grey)
   return (
     <span
-      className={`inline-flex items-center text-white/70 ${className}`}
+      className={`inline-flex items-center text-gray-400 ${className}`}
       title="Sent"
       aria-label="Message Sent"
     >
