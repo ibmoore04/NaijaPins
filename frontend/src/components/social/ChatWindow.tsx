@@ -23,7 +23,9 @@ import {
   ShieldAlert,
   ShieldCheck,
   Ban,
+  Info,
 } from 'lucide-react';
+import { ConversationInfoPanel } from '@/components/social/ConversationInfoPanel';
 import { Message, Conversation, MessageAttachment } from '@/types/social';
 import { chatService } from '@/services/chat.service';
 import { useAuth } from '@/hooks/useAuth';
@@ -64,6 +66,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
+  const [showLocalInfoPanel, setShowLocalInfoPanel] = useState(false);
 
   // Realtime state
   const [typingUser, setTypingUser] = useState<string | null>(null);
@@ -130,6 +133,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           if (!isMounted) return;
           setMessages((prev) => {
             if (prev.some((m) => m.id === newMsg.id)) return prev;
+
+            // Check if there is an optimistic temp message that matches this new real message
+            const tempIndex = prev.findIndex(
+              (m) =>
+                m.id.startsWith('temp-') &&
+                m.sender_id === newMsg.sender_id &&
+                m.content === newMsg.content
+            );
+
+            if (tempIndex !== -1) {
+              const updated = [...prev];
+              updated[tempIndex] = newMsg;
+              return updated;
+            }
+
             return [...prev, newMsg];
           });
           setTimeout(scrollToBottom, 100);
@@ -207,8 +225,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           }
         }
       );
+
+      // 6. Realtime Block/Unblock Subscription
+      if (targetUserId) {
+        unsubscribeBlock = chatService.subscribeToBlockStatus(
+          user.id,
+          targetUserId,
+          (status) => {
+            if (!isMounted) return;
+            setIsBlockedByMe(status.isBlockedByMe);
+            setIsBlockedByThem(status.isBlockedByThem);
+          }
+        );
+      }
     };
 
+    let unsubscribeBlock: (() => void) | null = null;
     loadData();
 
     return () => {
@@ -216,6 +248,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       if (unsubscribeMsgs) unsubscribeMsgs();
       if (unsubscribeTyping) unsubscribeTyping();
       if (unsubscribePresence) unsubscribePresence();
+      if (unsubscribeBlock) unsubscribeBlock();
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, [conversation.id, user?.id, targetUserId]);
@@ -338,9 +371,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       if (result.success && result.message) {
         const confirmedMsg = result.message;
-        setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? { ...confirmedMsg, status: 'sent' } : m))
-        );
+        setMessages((prev) => {
+          // If Realtime subscription already inserted this message, remove temp message
+          if (prev.some((m) => m.id === confirmedMsg.id)) {
+            return prev.filter((m) => m.id !== tempId);
+          }
+          return prev.map((m) => (m.id === tempId ? { ...confirmedMsg, status: 'sent' } : m));
+        });
       } else {
         setMessages((prev) =>
           prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
@@ -419,6 +456,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       const success = await chatService.unblockUser(targetUserId);
       if (success) {
         setIsBlockedByMe(false);
+        setIsBlockedByThem(false);
+        if (user) {
+          const latest = await chatService.getBlockStatus(user.id, targetUserId);
+          setIsBlockedByMe(latest.isBlockedByMe);
+          setIsBlockedByThem(latest.isBlockedByThem);
+        }
       } else {
         alert('Failed to unblock user. Please try again.');
       }
@@ -450,6 +493,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
+  // Safe deduplicated messages array for rendering
+  const uniqueMessages = React.useMemo(() => {
+    const seen = new Set<string>();
+    return messages.filter((msg) => {
+      if (seen.has(msg.id)) return false;
+      seen.add(msg.id);
+      return true;
+    });
+  }, [messages]);
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#F9FAFB] min-h-0 overflow-hidden select-none font-body relative">
       {/* 1. Chat Header */}
@@ -458,46 +511,64 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           {onBack && (
             <button
               onClick={onBack}
-              className="p-1.5 -ml-1.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-black md:hidden transition-colors cursor-pointer"
+              className="p-1.5 -ml-1.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-black md:hidden transition-colors cursor-pointer shrink-0"
               title="Back"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
 
-          <div className="relative">
-            <UserAvatar
-              src={otherMember?.avatar_url}
-              name={otherMember?.full_name || 'Contributor'}
-              size="md"
-            />
-            <span
-              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white ${
-                isOtherUserOnline ? 'bg-emerald-500' : 'bg-gray-300'
-              }`}
-            />
-          </div>
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-xs sm:text-sm font-bold text-gray-900 truncate">
-                {otherMember?.full_name || 'Contributor'}
-              </h3>
-              <span className="w-3.5 h-3.5 rounded-full bg-[#0B6B3A] text-white flex items-center justify-center text-[8px] font-bold shrink-0">✓</span>
+          <div
+            onClick={() => {
+              if (onToggleInfo) {
+                onToggleInfo();
+              } else {
+                setShowLocalInfoPanel(true);
+              }
+            }}
+            className="flex items-center gap-3 min-w-0 cursor-pointer hover:opacity-85 transition-opacity"
+            title="View Conversation Info"
+          >
+            <div className="relative shrink-0">
+              <UserAvatar
+                src={otherMember?.avatar_url}
+                name={otherMember?.full_name || 'Contributor'}
+                size="md"
+              />
+              <span
+                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white ${
+                  isOtherUserOnline ? 'bg-emerald-500' : 'bg-gray-300'
+                }`}
+              />
             </div>
-            <p
-              className={`text-[10px] sm:text-[11px] font-semibold leading-none mt-0.5 ${
-                isOtherUserOnline ? 'text-emerald-600' : 'text-gray-400'
-              }`}
-            >
-              {isBlocked
-                ? 'Unavailable'
-                : typingUser
-                ? `${typingUser} is typing...`
-                : isOtherUserOnline
-                ? 'Online'
-                : 'Offline'}
-            </p>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+                  {otherMember?.full_name || 'Contributor'}
+                </h3>
+                <span className="w-3.5 h-3.5 rounded-full bg-[#0B6B3A] text-white flex items-center justify-center text-[8px] font-bold shrink-0">✓</span>
+              </div>
+              <p
+                className={`text-[10px] sm:text-[11px] font-semibold leading-none mt-0.5 ${
+                  isBlocked
+                    ? 'text-gray-400'
+                    : typingUser
+                    ? 'text-emerald-600'
+                    : isOtherUserOnline
+                    ? 'text-emerald-600'
+                    : 'text-gray-400'
+                }`}
+              >
+                {isBlocked
+                  ? 'Unavailable'
+                  : typingUser
+                  ? `${typingUser} is typing...`
+                  : isOtherUserOnline
+                  ? 'Online'
+                  : 'Offline'}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -549,11 +620,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   type="button"
                   onClick={() => {
                     setShowOptionsMenu(false);
-                    onToggleInfo && onToggleInfo();
+                    if (onToggleInfo) {
+                      onToggleInfo();
+                    } else {
+                      setShowLocalInfoPanel(true);
+                    }
                   }}
-                  className="w-full px-2.5 py-1.5 text-left rounded-xl hover:bg-gray-50 font-medium text-gray-700 cursor-pointer"
+                  className="w-full px-2.5 py-1.5 text-left rounded-xl hover:bg-gray-50 font-medium text-gray-700 cursor-pointer flex items-center gap-2"
                 >
-                  Conversation Info
+                  <Info className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                  <span>Conversation Info</span>
                 </button>
 
                 {isBlockedByMe ? (
@@ -599,7 +675,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <div className="h-full flex items-center justify-center">
             <Loader2 className="w-6 h-6 text-[#0B6B3A] animate-spin" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : uniqueMessages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-2 text-gray-400">
             <p className="text-xs font-semibold text-gray-600">Start the conversation</p>
             <p className="text-[11px] max-w-xs">
@@ -607,7 +683,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </p>
           </div>
         ) : (
-          messages.map((msg) => (
+          uniqueMessages.map((msg) => (
             <MessageBubble
               key={msg.id}
               message={msg}
@@ -853,6 +929,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           imageUrl={activeLightboxImage}
           onClose={() => setActiveLightboxImage(null)}
         />
+      )}
+
+      {/* Standalone Conversation Info Drawer Fallback */}
+      {showLocalInfoPanel && !onToggleInfo && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-fade-in">
+          <div
+            className="fixed inset-0"
+            onClick={() => setShowLocalInfoPanel(false)}
+          />
+          <div className="relative w-full max-w-sm sm:max-w-md h-full bg-white shadow-2xl z-10 animate-slide-left">
+            <ConversationInfoPanel
+              conversation={conversation}
+              onClose={() => setShowLocalInfoPanel(false)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Message, MessageAttachment } from '@/types/social';
 import { MessageStatusIndicator } from '@/components/chat/MessageStatusIndicator';
 import { MessageReactionsBar } from '@/components/chat/MessageReactionsBar';
+import { CallLogMessage } from '@/components/chat/CallLogMessage';
 import {
   MoreHorizontal,
   Reply,
@@ -41,6 +42,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [showReactionsBar, setShowReactionsBar] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  // If this message is a structured call log, render the CallLogMessage component
+  if (message.message_type === 'call') {
+    return <CallLogMessage message={message} isCurrentUser={isCurrentUser} />;
+  }
 
   const formattedTime = new Date(message.created_at).toLocaleTimeString([], {
     hour: '2-digit',

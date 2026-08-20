@@ -17,24 +17,32 @@ export const MessageStatusIndicator: React.FC<MessageStatusIndicatorProps> = ({
   readAt,
   className = '',
 }) => {
-  // Determine effective delivery status
+  // Determine effective status in priority order:
+  // 1. Read: is_read === true OR read_at !== null -> Double check in Emerald Green (#0B6B3A)
+  // 2. Delivered: delivered_at !== null OR status === 'delivered' -> Double check in Gray
+  // 3. Sent: Single check in Gray
+  // 4. Sending: Clock
+  // 5. Failed: Red Alert Circle
+
   let effectiveStatus: MessageDeliveryStatus = status || 'sent';
 
-  if (!status) {
-    if (isRead || Boolean(readAt)) {
-      effectiveStatus = 'read';
-    } else if (Boolean(deliveredAt)) {
-      effectiveStatus = 'delivered';
-    } else {
-      effectiveStatus = 'sent';
-    }
+  if (isRead || Boolean(readAt) || status === 'read') {
+    effectiveStatus = 'read';
+  } else if (Boolean(deliveredAt) || status === 'delivered') {
+    effectiveStatus = 'delivered';
+  } else if (status === 'sending') {
+    effectiveStatus = 'sending';
+  } else if (status === 'failed') {
+    effectiveStatus = 'failed';
+  } else {
+    effectiveStatus = 'sent';
   }
 
-  // 1. Sending (Subtle Clock / Pending indicator)
+  // 1. Sending (Subtle Clock)
   if (effectiveStatus === 'sending') {
     return (
       <span
-        className={`inline-flex items-center text-white/60 animate-pulse ${className}`}
+        className={`inline-flex items-center text-gray-400 animate-pulse ${className}`}
         title="Sending..."
         aria-label="Message Sending"
       >
@@ -43,12 +51,12 @@ export const MessageStatusIndicator: React.FC<MessageStatusIndicatorProps> = ({
     );
   }
 
-  // 2. Failed (Error / Retry indicator)
+  // 2. Failed (Error)
   if (effectiveStatus === 'failed') {
     return (
       <span
-        className={`inline-flex items-center text-rose-300 ${className}`}
-        title="Failed to send. Tap to retry."
+        className={`inline-flex items-center text-rose-500 ${className}`}
+        title="Failed to send"
         aria-label="Message Failed"
       >
         <AlertCircle className="w-3 h-3 stroke-2" />
@@ -56,7 +64,7 @@ export const MessageStatusIndicator: React.FC<MessageStatusIndicatorProps> = ({
     );
   }
 
-  // 3. Read (Double active checkmarks in benchmark brand emerald)
+  // 3. Read (Double checkmarks in green / emerald #0B6B3A)
   if (effectiveStatus === 'read') {
     return (
       <span
@@ -69,7 +77,7 @@ export const MessageStatusIndicator: React.FC<MessageStatusIndicatorProps> = ({
     );
   }
 
-  // 4. Delivered (Double checkmarks in neutral grey)
+  // 4. Delivered (Double checkmarks in neutral gray)
   if (effectiveStatus === 'delivered') {
     return (
       <span
@@ -82,7 +90,7 @@ export const MessageStatusIndicator: React.FC<MessageStatusIndicatorProps> = ({
     );
   }
 
-  // 5. Sent (Single checkmark in neutral grey)
+  // 5. Sent (Single checkmark in neutral gray)
   return (
     <span
       className={`inline-flex items-center text-gray-400 ${className}`}

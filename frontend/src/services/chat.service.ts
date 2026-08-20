@@ -7,6 +7,7 @@ import {
   MessageReaction,
 } from '@/types/social';
 import { notificationsService } from './notifications.service';
+import { pushNotificationService } from './pushNotification.service';
 
 export const chatService = {
   // 1. Get all active conversations for a user
@@ -126,11 +127,6 @@ export const chatService = {
         ? data.filter((msg) => !msg.deleted_by || !Array.isArray(msg.deleted_by) || !msg.deleted_by.includes(currentUserId))
         : data;
 
-      const { data: members } = await supabase
-        .from('conversation_members')
-        .select('user_id, last_read_at, last_delivered_at')
-        .eq('conversation_id', conversationId);
-
       const msgIds = visibleData.map((m) => m.id);
       const { data: reactionsData } = await supabase
         .from('message_reactions')
@@ -138,23 +134,8 @@ export const chatService = {
         .in('message_id', msgIds);
 
       const messagesWithStatus: Message[] = visibleData.map((msg) => {
-        const otherMember = members?.find((m) => m.user_id !== msg.sender_id);
-        const msgTime = new Date(msg.created_at).getTime();
-
-        const isRead =
-          msg.is_read ||
-          Boolean(msg.read_at) ||
-          Boolean(
-            otherMember?.last_read_at &&
-              new Date(otherMember.last_read_at).getTime() >= msgTime
-          );
-
-        const isDelivered =
-          Boolean(msg.delivered_at) ||
-          Boolean(
-            otherMember?.last_delivered_at &&
-              new Date(otherMember.last_delivered_at).getTime() >= msgTime
-          );
+        const isRead = Boolean(msg.is_read || msg.read_at);
+        const isDelivered = Boolean(msg.delivered_at);
 
         let status: MessageDeliveryStatus = 'sent';
         if (isRead) {
@@ -200,37 +181,59 @@ export const chatService = {
         return { success: false, error: 'Message cannot be empty.' };
       }
 
-      const now = new Date().toISOString();
-
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_id: senderId,
-          content: trimmed || (attachments[0]?.type === 'image' ? '📷 Photo' : attachments[0]?.type === 'audio' ? '🎤 Voice message' : '📎 File'),
-          attachments: attachments,
-          reply_to_message_id: options?.replyToId || null,
-          message_type: options?.messageType || (attachments.length > 0 ? attachments[0].type : 'text'),
-          is_read: false,
-        })
-        .select('*, sender:profiles(*), reply_to:reply_to_message_id(*)')
-        .single();
-
-      if (error || !data) {
-        throw new Error(error?.message || 'Failed to send message.');
-      }
-
-      await supabase
-        .from('conversations')
-        .update({ updated_at: now })
-        .eq('id', conversationId);
-
+      // Check if blocked before attempting send
       const { data: otherMember } = await supabase
         .from('conversation_members')
         .select('user_id, is_muted')
         .eq('conversation_id', conversationId)
         .neq('user_id', senderId)
         .maybeSingle();
+
+      if (otherMember) {
+        const isBlocked = await this.isUserBlocked(senderId, otherMember.user_id);
+        if (isBlocked) {
+          return {
+            success: false,
+            error: 'You cannot send messages because communication between these users is blocked.',
+          };
+        }
+      }
+
+      // Secure Server-Side RPC execution (enforces authentication, membership, and database RLS blocks)
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('send_my_message', {
+        p_conversation_id: conversationId,
+        p_content: trimmed,
+        p_attachments: attachments ?? [],
+        p_reply_to_id: options?.replyToId ?? null,
+        p_message_type: options?.messageType ?? (attachments.length > 0 ? attachments[0].type : 'text'),
+      });
+
+      if (rpcError) {
+        console.error(
+          `send_my_message RPC failed: [${rpcError.code || 'UNKNOWN'}] ${rpcError.message}`,
+          `\nDetails: ${rpcError.details || 'None'}`,
+          `\nHint: ${rpcError.hint || 'Make sure migration 20260829000000_enforce_blocked_users_in_messaging_and_calls.sql has been executed in the Supabase SQL editor'}`
+        );
+
+        const errorMsg = rpcError.message || 'Failed to send message.';
+        if (errorMsg.toLowerCase().includes('block')) {
+          return {
+            success: false,
+            error: 'You cannot send messages because communication between these users is blocked.',
+          };
+        }
+        return { success: false, error: errorMsg };
+      }
+
+      if (!rpcResult?.success || !rpcResult?.message) {
+        return { success: false, error: 'Unexpected response from messaging server.' };
+      }
+
+      const fullMsg: Message = {
+        ...rpcResult.message,
+        status: 'sent',
+        reactions: [],
+      };
 
       if (otherMember && !otherMember.is_muted) {
         await notificationsService.createNotification({
@@ -239,13 +242,19 @@ export const chatService = {
           title: '💬 New Direct Message',
           message: `${options?.senderName || 'A contributor'}: "${content.slice(0, 45)}${content.length > 45 ? '...' : ''}"`,
         });
-      }
 
-      const fullMsg: Message = {
-        ...(data as Message),
-        status: 'sent',
-        reactions: [],
-      };
+        // Trigger background Web Push Notification to recipient
+        pushNotificationService.sendPushNotification({
+          targetUserId: otherMember.user_id,
+          notificationType: 'message',
+          title: options?.senderName ? `💬 ${options.senderName}` : '💬 New Message',
+          body: trimmed.slice(0, 100) || (attachments[0]?.type === 'image' ? '📷 Sent a photo' : attachments[0]?.type === 'audio' ? '🎤 Sent a voice note' : '📎 Sent an attachment'),
+          data: {
+            url: `/messages`,
+            conversationId: conversationId,
+          },
+        }).catch((e) => console.warn('Background push error:', e));
+      }
 
       return { success: true, message: fullMsg };
     } catch (err: any) {
@@ -397,9 +406,21 @@ export const chatService = {
     }
   },
 
-  // Check detailed blocking relationships
+  // Check detailed blocking relationships using secure get_mutual_block_status RPC
   async getBlockStatus(currentUserId: string, targetUserId: string): Promise<{ isBlockedByMe: boolean; isBlockedByThem: boolean }> {
     try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_mutual_block_status', {
+        p_target_user_id: targetUserId,
+      });
+
+      if (!rpcError && rpcData) {
+        return {
+          isBlockedByMe: Boolean(rpcData.is_blocked_by_me),
+          isBlockedByThem: Boolean(rpcData.is_blocked_by_them),
+        };
+      }
+
+      // Fallback query
       const { data, error } = await supabase
         .from('blocked_users')
         .select('blocker_id, blocked_user_id')
@@ -414,6 +435,38 @@ export const chatService = {
     } catch {
       return { isBlockedByMe: false, isBlockedByThem: false };
     }
+  },
+
+  // Subscribe to realtime block/unblock changes between users
+  subscribeToBlockStatus(
+    currentUserId: string,
+    targetUserId: string,
+    onChange: (status: { isBlockedByMe: boolean; isBlockedByThem: boolean }) => void
+  ) {
+    const channelName = `blocks-live:${currentUserId}-${targetUserId}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'blocked_users',
+        },
+        async () => {
+          const updatedStatus = await this.getBlockStatus(currentUserId, targetUserId);
+          onChange(updatedStatus);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch {
+        // ignore
+      }
+    };
   },
 
   // 10. Update Last Seen (using update_my_last_seen RPC)
@@ -438,21 +491,49 @@ export const chatService = {
     callType: 'voice' | 'video'
   ): Promise<string | null> {
     try {
-      const { data, error } = await supabase
-        .from('calls')
-        .insert({
-          conversation_id: conversationId,
-          caller_id: callerId,
-          receiver_id: receiverId,
-          call_type: callType,
-          status: 'ringing',
-        })
-        .select('id')
-        .single();
+      const isBlocked = await this.isUserBlocked(callerId, receiverId);
+      if (isBlocked) {
+        console.warn('Call prevented: communication between users is blocked');
+        return null;
+      }
 
-      if (error || !data) return null;
-      return data.id;
-    } catch {
+      // Secure Server-Side RPC execution (enforces authentication, membership, and mutual block restrictions)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('initiate_my_call_record', {
+        p_conversation_id: conversationId,
+        p_receiver_id: receiverId,
+        p_call_type: callType,
+      });
+
+      if (rpcError || !rpcData?.success || !rpcData.call_id) {
+        if (rpcError?.message?.toLowerCase().includes('block')) {
+          console.warn('Call prevented: mutual block active');
+          return null;
+        }
+
+        // Direct table insert fallback (protected by calls RLS)
+        const { data: directData, error: directError } = await supabase
+          .from('calls')
+          .insert({
+            conversation_id: conversationId,
+            caller_id: callerId,
+            receiver_id: receiverId,
+            call_type: callType,
+            status: 'ringing',
+          })
+          .select('id')
+          .single();
+
+        if (directError || !directData) {
+          console.warn('Direct call insert error:', directError?.message || rpcError?.message);
+          return null;
+        }
+
+        return directData.id;
+      }
+
+      return rpcData.call_id;
+    } catch (err) {
+      console.error('Error creating call record:', err);
       return null;
     }
   },
@@ -472,6 +553,70 @@ export const chatService = {
     } catch (err) {
       console.error('Error updating call record:', err);
     }
+  },
+
+  async getCallRecord(callId: string): Promise<any | null> {
+    try {
+      const { data, error } = await supabase
+        .from('calls')
+        .select('*, caller:caller_id(*), receiver:receiver_id(*)')
+        .eq('id', callId)
+        .maybeSingle();
+
+      if (error || !data) return null;
+      return data;
+    } catch {
+      return null;
+    }
+  },
+
+  subscribeToUserConversations(userId: string, onUpdate: () => void) {
+    const channelName = `user-conv-live:${userId}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          onUpdate();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+        },
+        () => {
+          onUpdate();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversation_members',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          onUpdate();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch {
+        // ignore
+      }
+    };
   },
 
   // 11. Search Conversation Messages
@@ -656,7 +801,12 @@ export const chatService = {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(subscription);
+      try {
+        subscription.unsubscribe();
+        supabase.removeChannel(subscription);
+      } catch {
+        // ignore unmount errors
+      }
     };
   },
 
@@ -693,8 +843,13 @@ export const chatService = {
       });
 
     return () => {
-      presenceChannel.untrack();
-      supabase.removeChannel(presenceChannel);
+      try {
+        presenceChannel.untrack();
+        presenceChannel.unsubscribe();
+        supabase.removeChannel(presenceChannel);
+      } catch {
+        // ignore unmount errors
+      }
     };
   },
 
@@ -714,6 +869,7 @@ export const chatService = {
 
     return () => {
       try {
+        channel.unsubscribe();
         supabase.removeChannel(channel);
       } catch {
         // ignore unmount errors

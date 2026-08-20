@@ -8,6 +8,7 @@ import { CallProvider } from '@/context/CallContext';
 import { Header } from '@/components/layout/Header';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { AuthModal } from '@/components/auth/AuthModal';
+import { PushNotificationPromptModal } from '@/components/notifications/PushNotificationPromptModal';
 import { HomePage } from '@/pages/HomePage';
 import { ExplorePage } from '@/pages/ExplorePage';
 import { CommunityPage } from '@/pages/CommunityPage';
@@ -308,6 +309,9 @@ const AppShellContent: React.FC<AppShellContentProps> = ({
           </Route>
         </Routes>
       </div>
+
+      {/* Contextual Push Notification Prompt Modal */}
+      <PushNotificationPromptModal />
 
       <AuthModal
         isOpen={authModalOpen}

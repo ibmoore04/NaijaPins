@@ -16,17 +16,16 @@ export const MessagesPage: React.FC = () => {
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showInfoPanel, setShowInfoPanel] = useState(true);
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [newMsgModalOpen, setNewMsgModalOpen] = useState(false);
 
   useEffect(() => {
-    const loadConversations = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-      setLoading(true);
+    const loadConversations = async () => {
       const list = await chatService.getUserConversations(user.id);
       setConversations(list);
       setLoading(false);
@@ -38,6 +37,17 @@ export const MessagesPage: React.FC = () => {
     };
 
     loadConversations();
+
+    // Subscribe to live changes across all user conversations without requiring page refresh
+    const unsubscribe = chatService.subscribeToUserConversations(user.id, () => {
+      chatService.getUserConversations(user.id).then((updatedList) => {
+        setConversations(updatedList);
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [user?.id]);
 
   if (!user) {
@@ -114,6 +124,22 @@ export const MessagesPage: React.FC = () => {
               conversation={selectedConversation}
               onClose={() => setShowInfoPanel(false)}
             />
+          </div>
+        )}
+
+        {/* Mobile & Tablet Slide-over Drawer (< lg) */}
+        {selectedConversation && showInfoPanel && (
+          <div className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-fade-in">
+            <div
+              className="fixed inset-0"
+              onClick={() => setShowInfoPanel(false)}
+            />
+            <div className="relative w-full max-w-sm sm:max-w-md h-full bg-white shadow-2xl z-10 animate-slide-left">
+              <ConversationInfoPanel
+                conversation={selectedConversation}
+                onClose={() => setShowInfoPanel(false)}
+              />
+            </div>
           </div>
         )}
       </div>

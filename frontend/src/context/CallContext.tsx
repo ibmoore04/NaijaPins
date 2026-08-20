@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { chatService } from '@/services/chat.service';
+import { callLogService } from '@/services/callLog.service';
+import { pushNotificationService } from '@/services/pushNotification.service';
 import { CallType, CallStatus } from '@/types/social';
 import {
   Phone,
@@ -52,10 +54,101 @@ const RTC_CONFIG: RTCConfiguration = {
   iceCandidatePoolSize: 10,
 };
 
+// Web Audio API Ringtone Generator for incoming calls
+class RingtonePlayer {
+  private ctx: AudioContext | null = null;
+  private intervalId: any = null;
+  private isPlaying = false;
+
+  start() {
+    if (this.isPlaying) return;
+    this.isPlaying = true;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      
+      // Lazy init or reuse existing
+      if (!this.ctx || this.ctx.state === 'closed') {
+        this.ctx = new AudioCtx();
+      }
+
+      const ensureRunning = () => {
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      };
+
+      if (this.ctx.state === 'suspended') {
+        window.addEventListener('click', ensureRunning, { once: true });
+        window.addEventListener('touchstart', ensureRunning, { once: true });
+        window.addEventListener('keydown', ensureRunning, { once: true });
+      }
+
+      const playDualTone = () => {
+        if (!this.ctx || !this.isPlaying || this.ctx.state !== 'running') return;
+        try {
+          const now = this.ctx.currentTime;
+
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc1.type = 'sine';
+          osc2.type = 'sine';
+          osc1.frequency.setValueAtTime(440, now);
+          osc2.frequency.setValueAtTime(480, now);
+
+          gain.gain.setValueAtTime(0, now);
+          gain.gain.linearRampToValueAtTime(0.2, now + 0.05);
+          gain.gain.setValueAtTime(0.2, now + 1.2);
+          gain.gain.linearRampToValueAtTime(0, now + 1.3);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 1.3);
+          osc2.stop(now + 1.3);
+        } catch {
+          // Ignore interruption
+        }
+      };
+
+      if (this.ctx.state === 'running') {
+        playDualTone();
+      }
+      this.intervalId = setInterval(playDualTone, 3000);
+    } catch {
+      // Audio autoplay policy notice caught gracefully
+    }
+  }
+
+  stop() {
+    this.isPlaying = false;
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    if (this.ctx) {
+      try {
+        if (this.ctx.state !== 'closed') {
+          this.ctx.close().catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+      this.ctx = null;
+    }
+  }
+}
+
+const ringtone = new RingtonePlayer();
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [activeCall, setActiveCall] = useState<ActiveCallData | null>(null);
   const [callStatus, setCallStatus] = useState<CallStatus>('ringing');
   const [isMuted, setIsMuted] = useState(false);
@@ -100,25 +193,49 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setCallStatus('ringing');
         setIsVideoOff(payload.callType === 'voice');
+
+        // Play incoming ringtone sound
+        ringtone.start();
       })
       .subscribe();
 
+    // Listen for Service Worker Messages (e.g. Call Declined from push notification action)
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'CALL_DECLINED_FROM_NOTIFICATION') {
+        if (activeCallRef.current && activeCallRef.current.callId === event.data.callId) {
+          endActiveCall(true, 'rejected');
+        }
+      }
+    };
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    }
+
     return () => {
       try {
+        userChannel.unsubscribe();
         supabase.removeChannel(userChannel);
       } catch {
         // Prevent socket closure race conditions on rapid re-renders
       }
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+      }
     };
   }, [user?.id]);
 
-  // 2. Duration timer for accepted calls
+  // 2. Duration timer for accepted calls & ringtone lifecycle
   useEffect(() => {
     if (callStatus === 'accepted') {
+      ringtone.stop();
       timerRef.current = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
+    } else if (callStatus !== 'ringing') {
+      ringtone.stop();
     }
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -205,6 +322,21 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isIncoming: false,
     };
     setActiveCall(newCallData);
+
+    // Trigger Web Push Notification to target user for background/off-site call alert
+    const callerName = profile?.full_name || (user.user_metadata?.full_name as string) || 'Contributor';
+    pushNotificationService.sendPushNotification({
+      targetUserId: targetUser.user_id,
+      notificationType: 'incoming_call',
+      title: `📞 Incoming ${callType === 'video' ? 'Video' : 'Voice'} Call`,
+      body: `${callerName} is calling you on NaijaPins`,
+      data: {
+        url: `/messages`,
+        callId: callId || undefined,
+        callType,
+        conversationId,
+      },
+    }).catch((e) => console.warn('Push notification for call error:', e));
 
     // Initialize WebRTC Pipeline
     await setupWebRTCOutgoing(newCallData);
@@ -325,20 +457,24 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Notify Receiver on their dedicated user channel
             const receiverChannel = supabase.channel(`user-calls:${callData.targetUser.user_id}`);
-            receiverChannel.send({
-              type: 'broadcast',
-              event: 'incoming-call',
-              payload: {
-                callId: callData.callId,
-                conversationId: callData.conversationId,
-                callType: callData.callType,
-                caller: {
-                  user_id: user.id,
-                  full_name: (user.user_metadata?.full_name as string) || 'Contributor',
-                  avatar_url: (user.user_metadata?.avatar_url as string) || null,
-                },
-                offer,
-              },
+            receiverChannel.subscribe(async (recvStatus) => {
+              if (recvStatus === 'SUBSCRIBED') {
+                receiverChannel.send({
+                  type: 'broadcast',
+                  event: 'incoming-call',
+                  payload: {
+                    callId: callData.callId,
+                    conversationId: callData.conversationId,
+                    callType: callData.callType,
+                    caller: {
+                      user_id: user.id,
+                      full_name: (user.user_metadata?.full_name as string) || 'Contributor',
+                      avatar_url: (user.user_metadata?.avatar_url as string) || null,
+                    },
+                    offer,
+                  },
+                });
+              }
             });
 
             // Also broadcast on the conversation signaling channel
@@ -357,6 +493,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // 4. Accept Incoming Call
   const handleAcceptIncomingCall = async () => {
     if (!user || !activeCall) return;
+    ringtone.stop();
 
     try {
       setPermissionError(null);
@@ -481,6 +618,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const handleDeclineIncomingCall = () => {
+    ringtone.stop();
     if (activeCall && channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
@@ -492,6 +630,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const endActiveCall = (sendBroadcast = true, finalStatus: CallStatus = 'ended') => {
+    ringtone.stop();
+
     if (sendBroadcast && channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
@@ -501,12 +641,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (activeCall?.callId) {
-      chatService.updateCallRecord(activeCall.callId, {
-        status: finalStatus,
-        ended_at: new Date().toISOString(),
-        ended_by: user?.id,
-        duration_seconds: callDuration,
-      });
+      callLogService.recordCallCompletion(
+        activeCall.callId,
+        finalStatus,
+        callDuration
+      );
     }
 
     // Stop and clear local streams
@@ -781,7 +920,26 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useCall = () => {
   const context = useContext(CallContext);
   if (!context) {
-    throw new Error('useCall must be used within a CallProvider');
+    console.warn('useCall was called outside CallProvider; providing fallback');
+    return {
+      activeCall: null,
+      incomingCall: null,
+      callStatus: 'idle' as const,
+      isMuted: false,
+      isVideoEnabled: true,
+      callDuration: 0,
+      startCall: async () => {},
+      answerCall: async () => {},
+      declineCall: async () => {},
+      endCall: async () => {},
+      toggleMute: () => {},
+      toggleVideo: () => {},
+      switchCamera: async () => {},
+      localStream: null,
+      remoteStream: null,
+      localVideoRef: { current: null },
+      remoteVideoRef: { current: null },
+    };
   }
   return context;
 };

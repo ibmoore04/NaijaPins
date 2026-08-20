@@ -32,6 +32,8 @@ import { UserAvatar } from '@/components/ui/UserAvatar';
 import { chatService } from '@/services/chat.service';
 import { notificationsService } from '@/services/notifications.service';
 
+import { NaijaPinsLogo } from '@/components/ui/NaijaPinsLogo';
+
 interface HeaderProps {
   onOpenAuthModal?: (tab?: 'login' | 'register') => void;
 }
@@ -127,20 +129,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-border/80 shadow-2xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-18 flex items-center justify-between gap-4">
         
-        {/* 1. Brand Logo & Tagline */}
-        <Link to="/" className="flex items-center gap-3 shrink-0 group focus:outline-none">
-          <div className="w-9 h-9 rounded-full bg-[#0B6B3A] flex items-center justify-center text-white shadow-xs group-hover:bg-[#064D2A] transition-colors">
-            <MapPin className="w-4.5 h-4.5 fill-white stroke-[#0B6B3A]" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-heading font-extrabold text-lg sm:text-xl text-[#0B6B3A] tracking-tight leading-none">
-              NaijaPins
-            </span>
-            <span className="text-[10px] sm:text-[11px] font-medium text-charcoal-muted tracking-wide mt-0.5">
-              Where Nigeria remembers.
-            </span>
-          </div>
-        </Link>
+        {/* 1. Official Brand Logo */}
+        <NaijaPinsLogo variant="full" size="md" />
 
         {/* 2. Desktop Navigation Links (Clean & Smart Grouping) */}
         <nav className="hidden md:flex items-center gap-1 lg:gap-2">
@@ -489,15 +479,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
         >
           {/* Drawer Header Brand */}
           <div className="flex items-center justify-between pb-3 border-b border-border">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#0B6B3A] flex items-center justify-center text-white">
-                <MapPin className="w-4 h-4 fill-white stroke-[#0B6B3A]" />
-              </div>
-              <div>
-                <h4 className="font-heading font-extrabold text-base text-[#0B6B3A]">NaijaPins</h4>
-                <p className="text-[10px] text-charcoal-muted">Where Nigeria remembers.</p>
-              </div>
-            </div>
+            <NaijaPinsLogo variant="full" size="sm" onClick={() => setMobileMenuOpen(false)} />
             <button
               onClick={() => setMobileMenuOpen(false)}
               className="p-1.5 rounded-lg text-charcoal-muted hover:text-black hover:bg-gray-100"

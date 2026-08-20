@@ -17,6 +17,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { NaijaPinsLogo } from '@/components/ui/NaijaPinsLogo';
 
 // Fix Leaflet default marker icons
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -561,14 +562,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuthModal: _onOpenAuth
             
             {/* Logo & Tagline Column */}
             <div className="col-span-2 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-[#0B6B3A] flex items-center justify-center text-white">
-                  <MapPin className="w-4 h-4 fill-white stroke-[#0B6B3A]" />
-                </div>
-                <span className="font-heading font-extrabold text-xl text-white tracking-tight">
-                  NaijaPins
-                </span>
-              </div>
+              <NaijaPinsLogo variant="compact" size="md" textClassName="text-white" />
               <p className="text-xs text-gray-400 max-w-sm leading-relaxed">
                 Where Nigeria remembers. A community heritage digital archive preserving stories across Nigeria.
               </p>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Conversation } from '@/types/social';
+import { callLogService } from '@/services/callLog.service';
 import {
   Edit,
   Filter,
@@ -211,7 +212,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 
                   <div className="flex items-center justify-between gap-1">
                     <p className="text-[11px] text-gray-600 truncate font-normal">
-                      {lastMsg?.content || 'Started a conversation'}
+                      {callLogService.formatMessagePreview(lastMsg)}
                     </p>
 
                     {(conv.unread_count || 0) > 0 && (

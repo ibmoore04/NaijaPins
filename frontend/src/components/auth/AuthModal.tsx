@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { X, Mail, Lock, User, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { NaijaPinsLogo } from '@/components/ui/NaijaPinsLogo';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -122,6 +123,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Modal Header */}
         <div className="text-center space-y-1">
+          <NaijaPinsLogo variant="icon" size="lg" asLink={false} className="mx-auto mb-3" />
           <h2 className="text-2xl font-heading font-bold text-black">
             {tab === 'login' && 'Welcome Back'}
             {tab === 'register' && 'Join NaijaPins'}
