@@ -32,15 +32,22 @@ interface ActiveCallData {
   incomingOffer?: RTCSessionDescriptionInit;
 }
 
-interface CallContextType {
+export interface CallContextType {
   startCall: (
     conversationId: string,
     targetUser: { user_id: string; full_name: string; avatar_url?: string | null },
     callType: CallType
   ) => Promise<void>;
-  endActiveCall: () => void;
+  endActiveCall: (sendBroadcast?: boolean, finalStatus?: CallStatus) => void;
   activeCall: ActiveCallData | null;
   isCalling: boolean;
+  callStatus: CallStatus;
+  callDuration: number;
+  isMuted: boolean;
+  isVideoOff: boolean;
+  toggleMute: () => void;
+  toggleVideo: () => void;
+  toggleSpeaker: () => void;
 }
 
 const RTC_CONFIG: RTCConfiguration = {
@@ -171,17 +178,60 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   activeCallRef.current = activeCall;
 
-  // 1. Listen for incoming calls across user's personal channel
+  // 1. Listen for incoming calls across user's personal broadcast channel AND postgres changes + Pending Call Recovery
   useEffect(() => {
     if (!user) return;
 
+    // A: Check for any pending active ringing call on startup/focus
+    const checkPendingIncomingCalls = async () => {
+      try {
+        const cutoff = new Date(Date.now() - 60000).toISOString();
+        const { data: pendingCall } = await supabase
+          .from('calls')
+          .select('id, conversation_id, caller_id, call_type, status, started_at')
+          .eq('receiver_id', user.id)
+          .eq('status', 'ringing')
+          .gt('started_at', cutoff)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (pendingCall && !activeCallRef.current) {
+          console.log('[CALL] Recovered pending ringing call from database:', pendingCall);
+          const { data: callerProfile } = await supabase
+            .from('profiles')
+            .select('user_id, full_name, avatar_url')
+            .eq('user_id', pendingCall.caller_id)
+            .maybeSingle();
+
+          setActiveCall({
+            callId: pendingCall.id,
+            conversationId: pendingCall.conversation_id,
+            targetUser: {
+              user_id: pendingCall.caller_id,
+              full_name: callerProfile?.full_name || 'Contributor',
+              avatar_url: callerProfile?.avatar_url || null,
+            },
+            callType: pendingCall.call_type || 'voice',
+            isIncoming: true,
+          });
+          setCallStatus('ringing');
+          setIsVideoOff(pendingCall.call_type === 'voice');
+          ringtone.start();
+        }
+      } catch (err) {
+        console.warn('[CALL] Error checking pending incoming calls:', err);
+      }
+    };
+
+    checkPendingIncomingCalls();
+
+    // B: Personal Broadcast Channel
     const userChannel = supabase.channel(`user-calls:${user.id}`);
     userChannel
       .on('broadcast', { event: 'incoming-call' }, ({ payload }: any) => {
-        if (activeCallRef.current) {
-          // Already on a call, auto-reject
-          return;
-        }
+        console.log('[CALL] Received incoming-call broadcast:', payload);
+        if (activeCallRef.current) return;
 
         setActiveCall({
           callId: payload.callId,
@@ -193,13 +243,53 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setCallStatus('ringing');
         setIsVideoOff(payload.callType === 'voice');
-
-        // Play incoming ringtone sound
         ringtone.start();
       })
+      .subscribe((status) => {
+        console.log(`[CALL] Realtime subscription status for user-calls:${user.id}:`, status);
+      });
+
+    // C: Database Realtime Backup for Incoming Calls (Guaranteed delivery)
+    const dbCallsChannel = supabase
+      .channel(`db-calls:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'calls',
+          filter: `receiver_id=eq.${user.id}`,
+        },
+        async (payload: any) => {
+          console.log('[CALL] Received DB calls INSERT:', payload.new);
+          if (activeCallRef.current || payload.new.status !== 'ringing') return;
+
+          // Fetch caller profile
+          const { data: callerProfile } = await supabase
+            .from('profiles')
+            .select('user_id, full_name, avatar_url')
+            .eq('user_id', payload.new.caller_id)
+            .maybeSingle();
+
+          setActiveCall({
+            callId: payload.new.id,
+            conversationId: payload.new.conversation_id,
+            targetUser: {
+              user_id: payload.new.caller_id,
+              full_name: callerProfile?.full_name || 'Contributor',
+              avatar_url: callerProfile?.avatar_url || null,
+            },
+            callType: payload.new.call_type || 'voice',
+            isIncoming: true,
+          });
+          setCallStatus('ringing');
+          setIsVideoOff(payload.new.call_type === 'voice');
+          ringtone.start();
+        }
+      )
       .subscribe();
 
-    // Listen for Service Worker Messages (e.g. Call Declined from push notification action)
+    // D: Listen for Service Worker Messages (e.g. Call Declined from push notification action)
     const handleSwMessage = (event: MessageEvent) => {
       if (event.data?.type === 'CALL_DECLINED_FROM_NOTIFICATION') {
         if (activeCallRef.current && activeCallRef.current.callId === event.data.callId) {
@@ -216,6 +306,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         userChannel.unsubscribe();
         supabase.removeChannel(userChannel);
+        dbCallsChannel.unsubscribe();
+        supabase.removeChannel(dbCallsChannel);
       } catch {
         // Prevent socket closure race conditions on rapid re-renders
       }
@@ -240,6 +332,20 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [callStatus]);
+
+  // 3. Ringing Timeout (45s) — Mark as Missed if unanswered
+  useEffect(() => {
+    let timeoutId: any = null;
+    if (activeCall && callStatus === 'ringing') {
+      timeoutId = setTimeout(() => {
+        console.log('[CALL] Ringing timeout reached (45s) — marking call as missed (duration = 0)');
+        endActiveCall(true, 'missed');
+      }, 45000);
+    }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [activeCall?.callId, callStatus]);
 
   // Helper to safely play remote audio stream
   const attachAndPlayRemoteStream = async (stream: MediaStream) => {
@@ -295,6 +401,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ) => {
     if (!user) return;
 
+    console.log('[CALL DEBUG] Current auth user:', user.id);
+    console.log('[CALL DEBUG] Conversation ID:', conversationId);
+    console.log('[CALL DEBUG] Conversation targetUser object:', targetUser);
+    console.log('[CALL DEBUG] Receiver auth UUID:', targetUser.user_id);
+
+    // Guard: Prevent calling self
+    if (user.id === targetUser.user_id) {
+      console.error('[CALL] Cannot call yourself! Caller auth ID and Receiver auth ID are identical:', user.id);
+      alert('Cannot start a call with yourself.');
+      return;
+    }
+
     // Check if blocked before initiating call
     const isBlocked = await chatService.isUserBlocked(user.id, targetUser.user_id);
     if (isBlocked) {
@@ -311,11 +429,24 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCallStatus('ringing');
     iceCandidatesQueueRef.current = [];
 
+    console.log(`[CALL] Starting call to conversation ${conversationId}, receiver: ${targetUser.user_id}`);
+
     // Create DB call record
     const callId = await chatService.createCallRecord(conversationId, user.id, targetUser.user_id, callType);
+    
+    if (!callId) {
+      console.error('[CALL] Failed to create call record in database. Aborting call initialization.');
+      setCallStatus('ended');
+      setActiveCall(null);
+      alert('Failed to initiate call. Please check communication permissions.');
+      return;
+    }
+
+    console.log(`[CALL] Call record created: ${callId}`);
+    console.log(`[CALL] Receiver ID resolved: ${targetUser.user_id}`);
 
     const newCallData: ActiveCallData = {
-      callId: callId || undefined,
+      callId,
       conversationId,
       targetUser,
       callType,
@@ -325,18 +456,28 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Trigger Web Push Notification to target user for background/off-site call alert
     const callerName = profile?.full_name || (user.user_metadata?.full_name as string) || 'Contributor';
-    pushNotificationService.sendPushNotification({
+    console.log('[REAL PUSH][CALL] Starting');
+    console.log('[REAL PUSH][CALL] Target user ID:', targetUser.user_id);
+    const callPushPayload = {
       targetUserId: targetUser.user_id,
-      notificationType: 'incoming_call',
+      notificationType: 'incoming_call' as const,
       title: `📞 Incoming ${callType === 'video' ? 'Video' : 'Voice'} Call`,
       body: `${callerName} is calling you on NaijaPins`,
       data: {
         url: `/messages`,
-        callId: callId || undefined,
+        callId,
         callType,
         conversationId,
       },
-    }).catch((e) => console.warn('Push notification for call error:', e));
+    };
+    console.log('[REAL PUSH][CALL] Payload:', callPushPayload);
+    console.log('[REAL PUSH][CALL] Invoking Edge Function');
+
+    pushNotificationService.sendPushNotification(callPushPayload).then((res) => {
+      console.log('[REAL PUSH][CALL] Edge Function HTTP/result:', res);
+      console.log('[REAL PUSH][CALL] sent:', res.data?.sent ?? (res.success ? 1 : 0));
+      console.log('[REAL PUSH][CALL] failed:', res.data?.failed ?? (res.success ? 0 : 1));
+    }).catch((e) => console.warn('[REAL PUSH][CALL] Push notification for call error:', e));
 
     // Initialize WebRTC Pipeline
     await setupWebRTCOutgoing(newCallData);
@@ -410,6 +551,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       channelRef.current = signalingChannel;
 
       signalingChannel
+        .on('broadcast', { event: 'request-offer' }, async () => {
+          if (pc.localDescription) {
+            console.log('[CALL] Resending offer upon receiver request');
+            signalingChannel.send({
+              type: 'broadcast',
+              event: 'call-offer',
+              payload: { offer: pc.localDescription, senderId: user.id, callType: callData.callType },
+            });
+          }
+        })
         .on('broadcast', { event: 'call-answer' }, async ({ payload }: any) => {
           if (payload.senderId !== user.id && payload.answer) {
             try {
@@ -564,6 +715,34 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       channelRef.current = signalingChannel;
 
       signalingChannel
+        .on('broadcast', { event: 'call-offer' }, async ({ payload }: any) => {
+          if (payload.senderId !== user.id && payload.offer) {
+            try {
+              console.log('[CALL] Receiver received call-offer on signaling channel');
+              await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
+              await flushQueuedIceCandidates(pc);
+
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+
+              signalingChannel.send({
+                type: 'broadcast',
+                event: 'call-answer',
+                payload: { answer, senderId: user.id },
+              });
+
+              setCallStatus('accepted');
+              if (activeCall.callId) {
+                chatService.updateCallRecord(activeCall.callId, {
+                  status: 'accepted',
+                  answered_at: new Date().toISOString(),
+                });
+              }
+            } catch (err) {
+              console.error('Error handling call-offer on answerer:', err);
+            }
+          }
+        })
         .on('broadcast', { event: 'ice-candidate' }, async ({ payload }: any) => {
           if (payload.senderId !== user.id && payload.candidate) {
             if (pc.remoteDescription) {
@@ -582,6 +761,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
         .subscribe(async (status: string) => {
           if (status === 'SUBSCRIBED') {
+            console.log('[CALL] Receiver subscribed to signaling channel');
             if (activeCall.incomingOffer) {
               try {
                 // Set remote offer
@@ -609,6 +789,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
               } catch (err) {
                 console.error('Error during answer negotiation:', err);
               }
+            } else {
+              // Request offer from caller if not pre-populated
+              signalingChannel.send({
+                type: 'broadcast',
+                event: 'request-offer',
+                payload: { senderId: user.id },
+              });
             }
           }
         });
@@ -629,22 +816,40 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     endActiveCall(true, 'rejected');
   };
 
-  const endActiveCall = (sendBroadcast = true, finalStatus: CallStatus = 'ended') => {
+  const endActiveCall = (sendBroadcast = true, overrideStatus?: CallStatus) => {
     ringtone.stop();
+
+    // Determine accurate final status based on actual call lifecycle
+    let resolvedStatus: CallStatus = overrideStatus || 'ended';
+    let finalDuration = callDuration;
+
+    if (!overrideStatus) {
+      if (callStatus === 'ringing') {
+        // Never answered
+        resolvedStatus = activeCall?.isIncoming ? 'missed' : 'cancelled';
+        finalDuration = 0;
+      } else if (callStatus === 'accepted') {
+        resolvedStatus = 'ended';
+      }
+    } else if (overrideStatus === 'rejected' || overrideStatus === 'missed' || overrideStatus === 'cancelled') {
+      finalDuration = 0;
+    }
+
+    console.log(`[CALL] Ending call: resolvedStatus=${resolvedStatus}, duration=${finalDuration}s`);
 
     if (sendBroadcast && channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
-        event: 'call-ended',
-        payload: { senderId: user?.id },
+        event: resolvedStatus === 'rejected' ? 'call-rejected' : 'call-ended',
+        payload: { senderId: user?.id, status: resolvedStatus },
       });
     }
 
     if (activeCall?.callId) {
       callLogService.recordCallCompletion(
         activeCall.callId,
-        finalStatus,
-        callDuration
+        resolvedStatus,
+        finalDuration
       );
     }
 
@@ -743,6 +948,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         endActiveCall,
         activeCall,
         isCalling: !!activeCall,
+        callStatus,
+        callDuration,
+        isMuted,
+        isVideoOff,
+        toggleMute,
+        toggleVideo,
+        toggleSpeaker,
       }}
     >
       {children}
@@ -917,28 +1129,22 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useCall = () => {
+export const useCall = (): CallContextType => {
   const context = useContext(CallContext);
   if (!context) {
     console.warn('useCall was called outside CallProvider; providing fallback');
     return {
-      activeCall: null,
-      incomingCall: null,
-      callStatus: 'idle' as const,
-      isMuted: false,
-      isVideoEnabled: true,
-      callDuration: 0,
       startCall: async () => {},
-      answerCall: async () => {},
-      declineCall: async () => {},
-      endCall: async () => {},
+      endActiveCall: () => {},
+      activeCall: null,
+      isCalling: false,
+      callStatus: 'ringing',
+      callDuration: 0,
+      isMuted: false,
+      isVideoOff: false,
       toggleMute: () => {},
       toggleVideo: () => {},
-      switchCamera: async () => {},
-      localStream: null,
-      remoteStream: null,
-      localVideoRef: { current: null },
-      remoteVideoRef: { current: null },
+      toggleSpeaker: () => {},
     };
   }
   return context;

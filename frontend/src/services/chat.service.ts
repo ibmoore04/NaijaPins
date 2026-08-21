@@ -41,6 +41,23 @@ export const chatService = {
             .neq('user_id', userId)
             .maybeSingle();
 
+          let resolvedOtherMember: any = null;
+          if (otherMemberRow && otherMemberRow.user_id) {
+            const profileObj = Array.isArray(otherMemberRow.profile)
+              ? otherMemberRow.profile[0]
+              : otherMemberRow.profile;
+
+            resolvedOtherMember = {
+              user_id: otherMemberRow.user_id,
+              id: otherMemberRow.user_id,
+              full_name: profileObj?.full_name || 'Contributor',
+              avatar_url: profileObj?.avatar_url || null,
+              username: profileObj?.username,
+              is_premium: profileObj?.is_premium || false,
+              ...profileObj,
+            };
+          }
+
           const { data: lastMsgRow } = await supabase
             .from('messages')
             .select('*')
@@ -63,7 +80,7 @@ export const chatService = {
             id: conv.id,
             created_at: conv.created_at,
             updated_at: conv.updated_at,
-            other_member: (otherMemberRow?.profile as any) || null,
+            other_member: resolvedOtherMember,
             last_message: (lastMsgRow as Message) || null,
             unread_count: unreadCount || 0,
             is_muted: userMem?.is_muted || false,
@@ -244,16 +261,26 @@ export const chatService = {
         });
 
         // Trigger background Web Push Notification to recipient
-        pushNotificationService.sendPushNotification({
+        const messagePushPayload = {
           targetUserId: otherMember.user_id,
-          notificationType: 'message',
+          notificationType: 'message' as const,
           title: options?.senderName ? `💬 ${options.senderName}` : '💬 New Message',
           body: trimmed.slice(0, 100) || (attachments[0]?.type === 'image' ? '📷 Sent a photo' : attachments[0]?.type === 'audio' ? '🎤 Sent a voice note' : '📎 Sent an attachment'),
           data: {
             url: `/messages`,
             conversationId: conversationId,
           },
-        }).catch((e) => console.warn('Background push error:', e));
+        };
+
+        console.log('[REAL PUSH][MESSAGE] Starting');
+        console.log('[REAL PUSH][MESSAGE] Sender:', senderId);
+        console.log('[REAL PUSH][MESSAGE] Target user:', otherMember.user_id);
+        console.log('[REAL PUSH][MESSAGE] Conversation:', conversationId);
+        console.log('[REAL PUSH][MESSAGE] Payload:', messagePushPayload);
+
+        pushNotificationService.sendPushNotification(messagePushPayload).then((res) => {
+          console.log('[REAL PUSH][MESSAGE] Edge Function response:', res);
+        }).catch((e) => console.warn('[REAL PUSH][MESSAGE] Background push error:', e));
       }
 
       return { success: true, message: fullMsg };
@@ -497,6 +524,11 @@ export const chatService = {
         return null;
       }
 
+      if (callerId === receiverId) {
+        console.error('[CALL] Cannot call yourself! callerId and receiverId are identical:', callerId);
+        return null;
+      }
+
       // Secure Server-Side RPC execution (enforces authentication, membership, and mutual block restrictions)
       const { data: rpcData, error: rpcError } = await supabase.rpc('initiate_my_call_record', {
         p_conversation_id: conversationId,
@@ -504,9 +536,22 @@ export const chatService = {
         p_call_type: callType,
       });
 
+      if (rpcError) {
+        console.error('[CALL RPC ERROR]', {
+          message: rpcError.message,
+          details: rpcError.details,
+          hint: rpcError.hint,
+          code: rpcError.code,
+        });
+      }
+
       if (rpcError || !rpcData?.success || !rpcData.call_id) {
         if (rpcError?.message?.toLowerCase().includes('block')) {
           console.warn('Call prevented: mutual block active');
+          return null;
+        }
+        if (rpcError?.message?.toLowerCase().includes('cannot call yourself')) {
+          console.error('Call prevented: cannot call yourself');
           return null;
         }
 
@@ -524,7 +569,12 @@ export const chatService = {
           .single();
 
         if (directError || !directData) {
-          console.warn('Direct call insert error:', directError?.message || rpcError?.message);
+          console.error('[CALL DIRECT INSERT ERROR]', {
+            message: directError?.message,
+            details: directError?.details,
+            hint: directError?.hint,
+            code: directError?.code,
+          });
           return null;
         }
 

@@ -13,7 +13,11 @@ self.addEventListener('activate', (event) => {
 
 // 1. Push Event Handler
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
+  console.log('[SW PUSH] Push event received');
+  if (!event.data) {
+    console.warn('[SW PUSH] Push event received with empty data');
+    return;
+  }
 
   let payload = {
     title: '📍 NaijaPins',
@@ -26,6 +30,7 @@ self.addEventListener('push', (event) => {
 
   try {
     const rawData = event.data.json();
+    console.log('[SW PUSH] Payload parsed as JSON:', rawData);
     payload = {
       ...payload,
       ...rawData,
@@ -35,6 +40,7 @@ self.addEventListener('push', (event) => {
       },
     };
   } catch (err) {
+    console.log('[SW PUSH] Payload parsed as raw text:', event.data.text());
     payload.body = event.data.text() || payload.body;
   }
 
@@ -58,9 +64,29 @@ self.addEventListener('push', (event) => {
         ],
   };
 
-  event.waitUntil(
-    self.registration.showNotification(payload.title, notificationOptions)
-  );
+  const showNotificationPromise = (async () => {
+    try {
+      console.log(`[SW NOTIFICATION] Attempting showNotification: "${payload.title}" (isCall=${isCall})`);
+      await self.registration.showNotification(payload.title, notificationOptions);
+      console.log(`[SW NOTIFICATION] showNotification succeeded: "${payload.title}"`);
+    } catch (primaryErr) {
+      console.error('[SW NOTIFICATION ERROR] showNotification failed with full options:', primaryErr);
+      try {
+        // Fallback with minimal sanitized options (omits actions and vibrate if unsupported by OS)
+        console.log('[SW NOTIFICATION] Retrying with sanitized basic options...');
+        await self.registration.showNotification(payload.title, {
+          body: payload.body,
+          icon: '/favicon.png',
+          data: payload.data,
+        });
+        console.log('[SW NOTIFICATION] Sanitized showNotification fallback succeeded');
+      } catch (fallbackErr) {
+        console.error('[SW NOTIFICATION ERROR] Sanitized showNotification fallback also failed:', fallbackErr);
+      }
+    }
+  })();
+
+  event.waitUntil(showNotificationPromise);
 });
 
 // 2. Notification Click & Action Handler
@@ -110,4 +136,24 @@ self.addEventListener('notificationclick', (event) => {
       }
     })
   );
+});
+
+// 3. Message Event Handler (for direct SW notification diagnostics)
+self.addEventListener('message', (event) => {
+  console.log('[SW MESSAGE] Received message from client:', event.data);
+  if (event.data && event.data.type === 'TEST_SW_NOTIFICATION') {
+    event.waitUntil(
+      self.registration.showNotification('📍 NaijaPins SW Test', {
+        body: 'Service Worker notification rendering works directly from SW context',
+        icon: '/favicon.png',
+        badge: '/favicon.png',
+        requireInteraction: true,
+        data: { url: '/messages' },
+      }).then(() => {
+        console.log('[SW MESSAGE] Test notification displayed successfully');
+      }).catch((err) => {
+        console.error('[SW MESSAGE ERROR] Failed to display test notification:', err);
+      })
+    );
+  }
 });

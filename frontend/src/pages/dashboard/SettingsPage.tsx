@@ -174,8 +174,39 @@ export const SettingsPage: React.FC = () => {
                       Testing...
                     </span>
                   ) : (
-                    '⚡ Send Test Alert'
+                    '⚡ Test Remote Push'
                   )}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      if (!('serviceWorker' in navigator)) {
+                        alert('Service Worker not supported');
+                        return;
+                      }
+                      const reg = await navigator.serviceWorker.ready;
+                      console.log('[DIAGNOSTIC] Testing direct reg.showNotification...');
+                      await reg.showNotification('📍 NaijaPins Diagnostic', {
+                        body: 'Direct Service Worker notification test (bypassing remote push gateway)',
+                        icon: '/favicon.png',
+                        requireInteraction: true,
+                        tag: 'direct-sw-diag',
+                      });
+                      console.log('[DIAGNOSTIC] Direct reg.showNotification succeeded');
+                      if (reg.active) {
+                        reg.active.postMessage({ type: 'TEST_SW_NOTIFICATION' });
+                      }
+                    } catch (err: any) {
+                      console.error('[DIAGNOSTIC ERROR] Direct reg.showNotification failed:', err);
+                      alert(`Direct SW notification error: ${err?.message || err}`);
+                    }
+                  }}
+                  className="rounded-full font-bold text-xs border-gray-300 text-gray-700 hover:bg-gray-100"
+                >
+                  🛠️ Test Local SW Render
                 </Button>
 
                 <Button

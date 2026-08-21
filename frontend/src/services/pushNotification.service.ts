@@ -1,9 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
-// Standard VAPID public key (or from environment)
-const VAPID_PUBLIC_KEY =
-  import.meta.env.VITE_VAPID_PUBLIC_KEY ||
-  'BCm29o5_wXQ8BvjE5rN9X1R9Kq6O-fE0Q1m-lK6mYJ_X8o0rY8m1-uQ9Kq6O-fE0Q1m-lK6mYJ_X8o0rY8m1-uQ=';
+// Read VAPID public key from environment (no hardcoded fallback)
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
 export interface NotificationPreferences {
   user_id: string;
@@ -83,9 +81,14 @@ export const pushNotificationService = {
     }
   },
 
-  // 4. Request Permission & Subscribe device to Web Push
+  // 4. Request Permission & Subscribe device to Web Push (Handles automatic key refresh)
   async subscribeUser(userId: string): Promise<boolean> {
     if (!this.isPushSupported()) return false;
+
+    if (!VAPID_PUBLIC_KEY) {
+      console.error('[PUSH ERROR] VITE_VAPID_PUBLIC_KEY is not defined in frontend environment (.env)');
+      return false;
+    }
 
     try {
       const permission = await Notification.requestPermission();
@@ -96,21 +99,43 @@ export const pushNotificationService = {
       const registration = await this.registerServiceWorker();
       if (!registration) return false;
 
+      const convertedKey = urlB64ToUint8Array(VAPID_PUBLIC_KEY);
       let subscription = await registration.pushManager.getSubscription();
 
-      if (!subscription) {
+      // Detect and replace subscriptions created with old/different keys
+      if (subscription) {
         try {
-          const convertedKey = urlB64ToUint8Array(VAPID_PUBLIC_KEY);
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: convertedKey as unknown as ArrayBuffer,
-          });
-        } catch (subErr) {
-          // Fallback subscription without applicationServerKey if local/test
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-          });
+          const rawKey = subscription.options?.applicationServerKey;
+          let isMatching = false;
+          if (rawKey) {
+            const rawKeyArray = new Uint8Array(rawKey);
+            isMatching =
+              rawKeyArray.length === convertedKey.length &&
+              rawKeyArray.every((byte, idx) => byte === convertedKey[idx]);
+          }
+
+          if (!isMatching) {
+            console.log('[PUSH] Replacing obsolete push subscription with valid VAPID key...');
+            await subscription.unsubscribe();
+            subscription = null;
+          }
+        } catch {
+          try {
+            if (subscription) {
+              await subscription.unsubscribe();
+            }
+          } catch {
+            // Ignore unsubscribe errors
+          }
+          subscription = null;
         }
+      }
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: convertedKey as unknown as ArrayBuffer,
+        });
       }
 
       if (!subscription) return false;
@@ -120,7 +145,10 @@ export const pushNotificationService = {
       const p256dh = subJson.keys?.p256dh || '';
       const auth = subJson.keys?.auth || '';
 
-      if (!endpoint) return false;
+      if (!endpoint || !p256dh || !auth) {
+        console.warn('[PUSH] Subscription obtained but missing encryption keys');
+        return false;
+      }
 
       // Save push subscription to Supabase database
       const { error } = await supabase.rpc('upsert_my_push_subscription', {
@@ -146,6 +174,7 @@ export const pushNotificationService = {
         );
       }
 
+      console.log('[PUSH] Device successfully subscribed to Web Push with valid VAPID key');
       return true;
     } catch (err) {
       console.error('Failed to subscribe user to Web Push:', err);
@@ -190,19 +219,36 @@ export const pushNotificationService = {
       callType?: 'voice' | 'video';
       conversationId?: string;
     };
-  }): Promise<boolean> {
+  }): Promise<{ success: boolean; data?: any; error?: string }> {
+    console.log('[CALL PUSH] Invoking send-push-notification Edge Function with payload:', {
+      targetUserId: payload.targetUserId,
+      notificationType: payload.notificationType,
+      title: payload.title,
+      callId: payload.data?.callId,
+      callType: payload.data?.callType,
+    });
+
     try {
-      const { error } = await supabase.functions.invoke('send-push-notification', {
+      const { data, error } = await supabase.functions.invoke('send-push-notification', {
         body: payload,
       });
 
+      console.log('[CALL PUSH] Edge Function response:', { data, error });
+
       if (error) {
-        // Edge function may not be deployed yet in remote Supabase project
-        return false;
+        console.warn('[CALL PUSH] Edge Function invoke returned error:', error);
+        return { success: false, error: error.message || String(error) };
       }
-      return true;
-    } catch {
-      return false;
+
+      if (data && data.success === false) {
+        console.warn('[CALL PUSH] Edge Function reported failure:', data);
+        return { success: false, error: data.error || 'Push delivery failed', data };
+      }
+
+      return { success: true, data };
+    } catch (err: any) {
+      console.error('[CALL PUSH] Exception during sendPushNotification:', err);
+      return { success: false, error: err.message || String(err) };
     }
   },
 
@@ -291,29 +337,31 @@ export const pushNotificationService = {
         },
       });
 
-      // Step 3: Trigger local SW notification to guarantee immediate feedback
-      const reg = await this.registerServiceWorker();
-      if (reg) {
-        await reg.showNotification('📍 NaijaPins Test Alert', {
-          body: 'Web Push is active! Notifications will appear when NaijaPins is open, in background tabs, or off-site.',
-          icon: '/favicon.png',
-          badge: '/favicon.png',
-          tag: 'test-push-notification',
-          vibrate: [150, 80, 150],
-          data: { url: '/messages' },
-        } as any);
+      console.log('[PUSH TEST] Edge Function response:', { data: fnData, error: fnError });
+
+      if (fnError) {
+        return {
+          success: false,
+          message: `Remote Edge Function error: ${fnError.message || String(fnError)}`,
+          details: { permission: perm, subscribed, error: fnError },
+        };
+      }
+
+      if (fnData && fnData.sent === 0) {
+        return {
+          success: false,
+          message: `Edge Function responded but push was not sent: ${fnData.message || fnData.error || 'No active subscriptions'}`,
+          details: { permission: perm, subscribed, response: fnData },
+        };
       }
 
       return {
         success: true,
-        message: fnError
-          ? 'Notification displayed locally on this device! (Edge function not yet deployed or in local dev mode)'
-          : 'Test push notification delivered successfully!',
+        message: 'Remote Web Push delivered successfully! (Check your OS/browser notifications)',
         details: {
           permission: perm,
           subscribed,
           edgeFunctionResponse: fnData,
-          edgeFunctionError: fnError?.message,
         },
       };
     } catch (err: any) {
