@@ -148,13 +148,14 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         </NavLink>
 
         <div className="space-y-0.5">
-          <a
-            href="/#about"
+          <NavLink
+            to="/help"
+            onClick={onCloseMobile}
             className="flex items-center gap-3 px-3 py-1.5 rounded-xl text-xs font-semibold text-charcoal-muted hover:text-black hover:bg-gray-50 transition-colors"
           >
             <HelpCircle className="w-4 h-4 shrink-0" />
             <span>Help & Support</span>
-          </a>
+          </NavLink>
           <button
             onClick={handleSignOut}
             className="w-full flex items-center gap-3 px-3 py-1.5 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition-colors text-left"

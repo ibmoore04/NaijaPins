@@ -33,6 +33,7 @@ import { chatService } from '@/services/chat.service';
 import { notificationsService } from '@/services/notifications.service';
 
 import { NaijaPinsLogo } from '@/components/ui/NaijaPinsLogo';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 interface HeaderProps {
   onOpenAuthModal?: (tab?: 'login' | 'register') => void;
@@ -288,8 +289,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
           </Link>
         </nav>
 
-        {/* 3. Header Right Actions (Messages, Notifications, User Avatar) */}
+        {/* 3. Header Right Actions (ThemeToggle, Messages, Notifications, User Avatar) */}
         <div className="hidden sm:flex items-center gap-2 lg:gap-3">
+          <ThemeToggle />
+
           {/* Desktop Messages & Notifications Icons */}
           {isAuthenticated ? (
             <>
@@ -448,7 +451,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
             </button>
           )}
 
-          {/* Clean Menu Toggle Button */}
+          {/* Theme Toggle & Clean Menu Toggle Button */}
+          <ThemeToggle className="mr-0.5" />
           <button
             onClick={() => {
               if (isDashboardRoute) {
@@ -457,7 +461,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
                 setMobileMenuOpen(!mobileMenuOpen);
               }
             }}
-            className="p-1.5 text-charcoal-dark hover:bg-gray-100 rounded-xl focus:outline-none transition-colors"
+            className="p-1.5 text-charcoal-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl focus:outline-none transition-colors"
             aria-label="Menu"
           >
             {(isDashboardRoute ? isDashboardSidebarOpen : mobileMenuOpen) ? (
@@ -472,7 +476,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
       {/* 5. Mobile Drawer Menu (For Public / Non-Dashboard Pages) */}
       {!isDashboardRoute && mobileMenuOpen && (
         <div
-          className="md:hidden border-t border-border bg-white px-5 pt-4 pb-8 space-y-4 animate-fade-in max-h-[85vh] overflow-y-auto"
+          className="md:hidden border-t border-border bg-white dark:bg-[#141A17] px-5 pt-4 pb-8 space-y-4 animate-fade-in max-h-[85vh] overflow-y-auto"
           role="dialog"
           aria-modal="true"
           aria-label="Mobile Navigation Menu"
@@ -480,12 +484,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal }) => {
           {/* Drawer Header Brand */}
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <NaijaPinsLogo variant="full" size="sm" onClick={() => setMobileMenuOpen(false)} />
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-1.5 rounded-lg text-charcoal-muted hover:text-black hover:bg-gray-100"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1.5 rounded-lg text-charcoal-muted hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           <nav className="flex flex-col space-y-1 text-sm font-semibold">

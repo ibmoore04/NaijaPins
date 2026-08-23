@@ -7,9 +7,11 @@ import { plansService } from '@/services/plans.service';
 import { paymentService } from '@/services/payment.service';
 import { PricingCard } from '@/components/membership/PricingCard';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Crown, Check, AlertCircle } from 'lucide-react';
+import { Crown, Check, AlertCircle, X } from 'lucide-react';
+import { usePageTitle } from '@/hooks/usePageTitle';
 
 export const PremiumPage: React.FC = () => {
+  usePageTitle('Premium Heritage Membership');
   const { user } = useAuth();
   const { membership, refreshMembership } = useMembership();
   const navigate = useNavigate();
@@ -141,17 +143,17 @@ export const PremiumPage: React.FC = () => {
                 </tr>
                 <tr>
                   <td className="p-4 font-semibold">Advanced Memory Analytics & Trends</td>
-                  <td className="p-4 text-center text-charcoal-muted">—</td>
+                  <td className="p-4 text-center text-charcoal-muted"><X className="w-4 h-4 text-charcoal-muted mx-auto" aria-label="Not included in free tier" /></td>
                   <td className="p-4 text-center bg-[#E8F5EE]/20"><Check className="w-4 h-4 text-[#0B6B3A] mx-auto font-bold" /></td>
                 </tr>
                 <tr>
                   <td className="p-4 font-semibold">Verified Premium Contributor Badge</td>
-                  <td className="p-4 text-center text-charcoal-muted">—</td>
+                  <td className="p-4 text-center text-charcoal-muted"><X className="w-4 h-4 text-charcoal-muted mx-auto" aria-label="Not included in free tier" /></td>
                   <td className="p-4 text-center bg-[#E8F5EE]/20"><Check className="w-4 h-4 text-[#0B6B3A] mx-auto font-bold" /></td>
                 </tr>
                 <tr>
                   <td className="p-4 font-semibold">Advanced Map & Era Filters</td>
-                  <td className="p-4 text-center text-charcoal-muted">—</td>
+                  <td className="p-4 text-center text-charcoal-muted"><X className="w-4 h-4 text-charcoal-muted mx-auto" aria-label="Not included in free tier" /></td>
                   <td className="p-4 text-center bg-[#E8F5EE]/20"><Check className="w-4 h-4 text-[#0B6B3A] mx-auto font-bold" /></td>
                 </tr>
               </tbody>

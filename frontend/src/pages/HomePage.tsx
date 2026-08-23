@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import L from 'leaflet';
@@ -11,13 +11,23 @@ import {
   ShieldCheck,
   Heart,
   Edit3,
+  ChevronLeft,
   ChevronRight,
   Mail,
   Heart as HeartSolid,
   MessageSquare,
+  Twitter,
+  Instagram,
+  Facebook,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { NaijaPinsLogo } from '@/components/ui/NaijaPinsLogo';
+import { SOCIAL_LINKS } from '@/config/socialLinks';
+import { newsletterService } from '@/services/newsletter.service';
+import { usePageTitle } from '@/hooks/usePageTitle';
 
 // Fix Leaflet default marker icons
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -175,7 +185,56 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onOpenAuthModal: _onOpenAuthModal }) => {
+  usePageTitle('Where Nigeria Remembers');
   const [activeLocation, setActiveLocation] = useState<HeroLocationItem>(HERO_LOCATIONS[0]);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
+  const [newsletterStatus, setNewsletterStatus] = useState<{ type: 'idle' | 'success' | 'error'; message: string }>({
+    type: 'idle',
+    message: '',
+  });
+
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScrollability = () => {
+    if (carouselRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
+      setCanScrollLeft(scrollLeft > 10);
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
+    }
+  };
+
+  useEffect(() => {
+    checkScrollability();
+    window.addEventListener('resize', checkScrollability);
+    return () => window.removeEventListener('resize', checkScrollability);
+  }, []);
+
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    if (carouselRef.current) {
+      const offset = direction === 'left' ? -320 : 320;
+      carouselRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+    }
+  };
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newsletterEmail.trim() || newsletterLoading) return;
+
+    setNewsletterLoading(true);
+    setNewsletterStatus({ type: 'idle', message: '' });
+
+    const res = await newsletterService.subscribe(newsletterEmail);
+    if (res.success) {
+      setNewsletterStatus({ type: 'success', message: res.message });
+      setNewsletterEmail('');
+    } else {
+      setNewsletterStatus({ type: 'error', message: res.message });
+    }
+    setNewsletterLoading(false);
+  };
 
   return (
     <div className="min-h-screen bg-white flex flex-col font-body overflow-x-hidden">
@@ -454,21 +513,37 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuthModal: _onOpenAuth
             </Link>
           </div>
 
-          {/* Cards Grid using exact locations from image */}
-          <div className="relative">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              
+          {/* Carousel with interactive controls */}
+          <div className="relative group">
+            {/* Left Carousel Arrow */}
+            {canScrollLeft && (
+              <button
+                type="button"
+                onClick={() => scrollCarousel('left')}
+                aria-label="Previous memories"
+                className="hidden lg:flex absolute -left-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white dark:bg-[#141A17] border border-gray-200 dark:border-gray-700 shadow-lg items-center justify-center text-charcoal-dark dark:text-gray-200 hover:bg-[#0B6B3A] hover:text-white dark:hover:bg-[#108548] transition-all z-10 animate-fade-in"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+
+            <div
+              ref={carouselRef}
+              onScroll={checkScrollability}
+              className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 overflow-x-auto sm:overflow-x-visible no-scrollbar pb-2 sm:pb-0 scroll-smooth snap-x snap-mandatory"
+            >
               {HERO_LOCATIONS.slice(1, 5).map((loc) => (
                 <div
                   key={loc.id}
                   onClick={() => setActiveLocation(loc)}
-                  className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col"
+                  className="min-w-[260px] sm:min-w-0 snap-start bg-white dark:bg-[#141A17] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-xs hover:shadow-md transition-all cursor-pointer group/card flex flex-col"
                 >
-                  <div className="relative h-44 sm:h-48 overflow-hidden bg-gray-100">
+                  <div className="relative h-44 sm:h-48 overflow-hidden bg-gray-100 dark:bg-gray-800">
                     <img
                       src={loc.image}
                       alt={loc.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
                     />
                     <span className="absolute bottom-3 left-3 px-2.5 py-0.5 rounded-full bg-[#0B6B3A] text-white text-xs font-semibold">
                       {loc.category}
@@ -476,15 +551,15 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuthModal: _onOpenAuth
                   </div>
                   <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                     <div className="space-y-1">
-                      <h3 className="font-semibold text-base text-black group-hover:text-[#0B6B3A] transition-colors">
+                      <h3 className="font-semibold text-base text-black dark:text-white group-hover/card:text-[#0B6B3A] transition-colors">
                         {loc.title}
                       </h3>
                       <p className="text-xs text-charcoal-muted font-normal">{loc.location}</p>
-                      <p className="text-xs text-charcoal-dark font-medium pt-0.5">{loc.yearTag}</p>
+                      <p className="text-xs text-charcoal-dark dark:text-gray-300 font-medium pt-0.5">{loc.yearTag}</p>
                     </div>
-                    <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-charcoal-muted">
-                      <span className="font-normal text-black">
-                        by {loc.id === 'st-gregorys-college' ? 'Tunde A.' : loc.id === 'balogun-market' ? 'Kemi O.' : loc.id === 'national-stadium' ? 'Dele M.' : 'Aisha B.'}
+                    <div className="pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs text-charcoal-muted">
+                      <span className="font-normal text-charcoal-dark dark:text-gray-300">
+                        {loc.contributorsCount ? `${loc.contributorsCount} contributors` : 'Community memory'}
                       </span>
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1">
@@ -498,16 +573,19 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuthModal: _onOpenAuth
                   </div>
                 </div>
               ))}
-
             </div>
 
-            {/* Floating Carousel Navigation Arrow */}
-            <button
-              aria-label="Next memories"
-              className="hidden lg:flex absolute -right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-lg items-center justify-center text-charcoal-dark hover:bg-[#0B6B3A] hover:text-white transition-colors z-10"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+            {/* Right Carousel Arrow */}
+            {canScrollRight && (
+              <button
+                type="button"
+                onClick={() => scrollCarousel('right')}
+                aria-label="Next memories"
+                className="hidden lg:flex absolute -right-5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white dark:bg-[#141A17] border border-gray-200 dark:border-gray-700 shadow-lg items-center justify-center text-charcoal-dark dark:text-gray-200 hover:bg-[#0B6B3A] hover:text-white dark:hover:bg-[#108548] transition-all z-10 animate-fade-in"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
         </div>
@@ -533,22 +611,49 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuthModal: _onOpenAuth
             </div>
 
             {/* Subscription Form */}
-            <form onSubmit={(e) => e.preventDefault()} className="w-full lg:w-auto flex flex-col sm:flex-row gap-3">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="w-full sm:w-72 h-11 px-4 rounded-lg bg-[#064D2A] border border-emerald-700/60 text-white placeholder-emerald-200/60 text-sm focus:outline-none focus:ring-2 focus:ring-white"
-                required
-              />
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                className="w-full sm:w-auto bg-[#053F22] hover:bg-[#032B17] text-white font-bold h-11 px-6 rounded-lg shadow-sm justify-center"
-              >
-                Subscribe
-              </Button>
-            </form>
+            <div className="w-full lg:w-auto flex flex-col items-center lg:items-end gap-2">
+              <form onSubmit={handleNewsletterSubmit} className="w-full lg:w-auto flex flex-col sm:flex-row gap-3">
+                <input
+                  type="email"
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  disabled={newsletterLoading}
+                  className="w-full sm:w-72 h-11 px-4 rounded-lg bg-[#064D2A] border border-emerald-700/60 text-white placeholder-emerald-200/60 text-sm focus:outline-none focus:ring-2 focus:ring-white disabled:opacity-50"
+                  required
+                />
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  disabled={newsletterLoading || !newsletterEmail.trim()}
+                  className="w-full sm:w-auto bg-[#053F22] hover:bg-[#032B17] text-white font-bold h-11 px-6 rounded-lg shadow-sm justify-center flex items-center gap-2 disabled:opacity-50"
+                >
+                  {newsletterLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Subscribing...</span>
+                    </>
+                  ) : (
+                    <span>Subscribe</span>
+                  )}
+                </Button>
+              </form>
+
+              {newsletterStatus.type === 'success' && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-200 animate-fade-in">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>{newsletterStatus.message}</span>
+                </div>
+              )}
+
+              {newsletterStatus.type === 'error' && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-200 animate-fade-in">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-300" />
+                  <span>{newsletterStatus.message}</span>
+                </div>
+              )}
+            </div>
 
           </div>
         </div>
@@ -568,10 +673,63 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuthModal: _onOpenAuth
               </p>
               {/* Social Links */}
               <div className="flex items-center gap-4 text-gray-400 pt-2">
-                <span className="hover:text-white cursor-pointer">🌐</span>
-                <span className="hover:text-white cursor-pointer">🐦</span>
-                <span className="hover:text-white cursor-pointer">📸</span>
-                <span className="hover:text-white cursor-pointer">▶️</span>
+                {SOCIAL_LINKS.twitter ? (
+                  <a
+                    href={SOCIAL_LINKS.twitter}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="NaijaPins on Twitter / X"
+                    className="hover:text-white transition-colors"
+                  >
+                    <Twitter className="w-4 h-4" />
+                  </a>
+                ) : (
+                  <span
+                    aria-label="Twitter / X (coming soon)"
+                    className="opacity-40 cursor-not-allowed"
+                    title="Twitter / X (coming soon)"
+                  >
+                    <Twitter className="w-4 h-4" />
+                  </span>
+                )}
+                {SOCIAL_LINKS.instagram ? (
+                  <a
+                    href={SOCIAL_LINKS.instagram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="NaijaPins on Instagram"
+                    className="hover:text-white transition-colors"
+                  >
+                    <Instagram className="w-4 h-4" />
+                  </a>
+                ) : (
+                  <span
+                    aria-label="Instagram (coming soon)"
+                    className="opacity-40 cursor-not-allowed"
+                    title="Instagram (coming soon)"
+                  >
+                    <Instagram className="w-4 h-4" />
+                  </span>
+                )}
+                {SOCIAL_LINKS.facebook ? (
+                  <a
+                    href={SOCIAL_LINKS.facebook}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="NaijaPins on Facebook"
+                    className="hover:text-white transition-colors"
+                  >
+                    <Facebook className="w-4 h-4" />
+                  </a>
+                ) : (
+                  <span
+                    aria-label="Facebook (coming soon)"
+                    className="opacity-40 cursor-not-allowed"
+                    title="Facebook (coming soon)"
+                  >
+                    <Facebook className="w-4 h-4" />
+                  </span>
+                )}
               </div>
             </div>
 
@@ -592,7 +750,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuthModal: _onOpenAuth
               <ul className="space-y-2 text-xs">
                 <li><Link to="/add-memory" className="hover:text-white">Add Memory</Link></li>
                 <li><a href="#how-it-works" className="hover:text-white">How it Works</a></li>
-                <li><a href="#guidelines" className="hover:text-white">Community Guidelines</a></li>
+                <li><Link to="/help" className="hover:text-white">Community Guidelines</Link></li>
               </ul>
             </div>
 
@@ -600,9 +758,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuthModal: _onOpenAuth
             <div className="space-y-3 col-span-2 sm:col-span-1">
               <h4 className="font-bold text-xs uppercase tracking-wider text-white">About</h4>
               <ul className="space-y-2 text-xs">
-                <li><a href="#about" className="hover:text-white">About Us</a></li>
-                <li><a href="#mission" className="hover:text-white">Our Mission</a></li>
-                <li><a href="#contact" className="hover:text-white">Contact Us</a></li>
+                <li><Link to="/help" className="hover:text-white">About Us</Link></li>
+                <li><Link to="/help" className="hover:text-white">Our Mission</Link></li>
+                <li><Link to="/help" className="hover:text-white">Contact Us</Link></li>
               </ul>
             </div>
 
@@ -610,8 +768,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuthModal: _onOpenAuth
 
           {/* Bottom Copyright Bar */}
           <div className="pt-6 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 gap-3 text-center sm:text-left">
-            <p>&copy; 2024 NaijaPins. All rights reserved.</p>
-            <p>Made with <span className="text-red-500">❤️</span> for Nigeria.</p>
+            <p>&copy; {new Date().getFullYear()} NaijaPins. All rights reserved.</p>
+            <p className="flex items-center justify-center sm:justify-start gap-1">
+              Made with <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500 inline-block" aria-hidden="true" /> for Nigeria.
+            </p>
           </div>
 
         </div>
