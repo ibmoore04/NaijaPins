@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
@@ -7,6 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { MapBounds, MapPin as MapPinType } from '@/types/database';
 import { createSocialPinIcon } from './SocialMapMarker';
+import { AppTileLayer } from './AppTileLayer';
 
 // Fix Leaflet default icon issues in bundled React app
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -204,10 +205,7 @@ export const MapView: React.FC<MapViewProps> = ({
         className="w-full h-full z-0"
         style={{ height: '100%', width: '100%' }}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <AppTileLayer />
 
         <MapBoundsListener onBoundsChange={onBoundsChange} />
 

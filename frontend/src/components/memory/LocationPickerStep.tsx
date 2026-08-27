@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, useMapEvents } from 'react-leaflet';
+import { AppTileLayer } from '@/components/map/AppTileLayer';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button } from '@/components/ui/Button';
@@ -153,10 +154,7 @@ export const LocationPickerStep: React.FC<LocationPickerStepProps> = ({ initialD
           scrollWheelZoom={true}
           className="w-full h-full"
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+          <AppTileLayer />
           <MapClickHandler onLocationSelect={handleMapClick} />
           <Marker
             position={[location.latitude, location.longitude]}

@@ -45,28 +45,6 @@
   --radius-pill:              9999px;
 }
 
-/* Dark Mode Theme Tokens */
-[data-theme="dark"],
-.dark {
-  --color-green-primary:      #108548;
-  --color-green-dark:         #0A572F;
-  --color-green-light:        #132E20;
-  --color-green-border:       #1E5E3B;
-
-  --color-white:              #141A17;
-  --color-offwhite:           #0B0E0D;
-  --color-gray-light:         #1C2420;
-  --color-border:             #25332C;
-
-  --color-black:              #F8FAF9;
-  --color-charcoal-dark:      #D1D5DB;
-  --color-gray-muted:         #94A3B8;
-
-  --color-status-success:     #108548;
-  --color-status-warning:     #F59E0B;
-  --color-status-error:       #EF4444;
-  --color-status-info:        #38BDF8;
-}
 
 @layer base {
   html, body {

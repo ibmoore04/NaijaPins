@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { newsletterService } from '@/services/newsletter.service';
 import { SOCIAL_LINKS } from '@/config/socialLinks';
 
@@ -41,30 +41,6 @@ describe('Social Links Configuration', () => {
   });
 });
 
-describe('Theme Logic & Persistence', () => {
-  const store: Record<string, string> = {};
-  const mockLocalStorage = {
-    getItem: (key: string) => store[key] || null,
-    setItem: (key: string, value: string) => {
-      store[key] = value.toString();
-    },
-    clear: () => {
-      for (const k in store) delete store[k];
-    },
-  };
-
-  beforeEach(() => {
-    mockLocalStorage.clear();
-  });
-
-  it('correctly persists theme preference in storage', () => {
-    mockLocalStorage.setItem('naijapins_theme', 'dark');
-    expect(mockLocalStorage.getItem('naijapins_theme')).toBe('dark');
-
-    mockLocalStorage.setItem('naijapins_theme', 'light');
-    expect(mockLocalStorage.getItem('naijapins_theme')).toBe('light');
-  });
-});
 
 describe('Page Title Formatter', () => {
   it('formats titles with brand suffix', () => {

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, Marker } from 'react-leaflet';
+import { AppTileLayer } from '@/components/map/AppTileLayer';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -313,10 +314,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuthModal: _onOpenAuth
                   zoomControl={false}
                   className="w-full h-full z-0"
                 >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
+                  <AppTileLayer />
 
                   {/* Render Cluster Badges */}
                   <Marker position={[7.1475, 3.3619]} icon={createHeroPinIcon(false, 32)} eventHandlers={{ click: () => setActiveLocation(HERO_LOCATIONS[0]) }} />
